@@ -275,6 +275,7 @@ input[type=time]::-webkit-date-and-time-value{text-align:left}
 .task .kebab{margin-top:-4px}
 .menu{display:grid;gap:10px}
 .btn.danger{color:var(--out)}
+.btn.danger.armed{background:var(--out);color:#fff}
 
 /* tombol plus */
 .fab{
@@ -298,6 +299,23 @@ input[type=time]::-webkit-date-and-time-value{text-align:left}
 
 @media (max-width:430px){.fgrid{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* login & sinkronisasi */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.acct{display:flex;align-items:center;gap:10px;flex:none}
+.acct[hidden]{display:none}
+#sync-st{font-size:.78rem;font-weight:600;white-space:nowrap}
+.auth{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;overflow:auto;background:linear-gradient(180deg,var(--base1),var(--base2))}
+.auth[hidden]{display:none}
+.auth .glass{width:min(420px,100%);padding:28px 22px;background:var(--sheet)}
+.auth h2{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.auth .sub{color:var(--muted);font-size:.92rem;margin-bottom:18px}
+.auth form{display:grid;gap:14px;margin-top:16px}
+.auth form label[hidden]{display:none}
+.auth .msg{min-height:1.2em;font-size:.88rem;font-weight:600;color:var(--out)}
+.auth .msg.ok{color:var(--in)}
+.auth .btn.pri{width:100%;padding:15px}
+.auth .btn[disabled]{opacity:.6;pointer-events:none}
 </style>
 </head>
 <body>
@@ -305,9 +323,30 @@ input[type=time]::-webkit-date-and-time-value{text-align:left}
 <div class="bg" aria-hidden="true"></div>
 <div class="toast glass blur" id="toast" role="status"></div>
 
+<div class="auth" id="auth">
+  <div class="glass">
+    <h2>Zaim’s Manager</h2>
+    <p class="sub" id="au-sub">Masuk agar datamu tersimpan dan sinkron di semua perangkat.</p>
+    <div class="seg acc" id="au-seg" role="group" aria-label="Masuk atau daftar">
+      <span class="thumb"></span>
+      <button type="button" data-m="in" class="on">Masuk</button>
+      <button type="button" data-m="up">Daftar</button>
+    </div>
+    <form id="au-form" novalidate>
+      <label>Email<input id="au-email" type="email" inputmode="email" autocomplete="email" placeholder="nama@email.com" required></label>
+      <label>Kata sandi<input id="au-pass" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter" required></label>
+      <label id="au-pass2-l" hidden>Ulangi kata sandi<input id="au-pass2" type="password" autocomplete="new-password" placeholder="Ketik ulang kata sandi"></label>
+      <div class="msg" id="au-msg" role="alert"></div>
+      <button class="btn pri" id="au-go" type="submit">Masuk</button>
+    </form>
+  </div>
+</div>
+
+
 <main>
   <header class="top">
     <h1>Zaim’s Manager</h1>
+    <div class="acct" id="acct" hidden><span class="muted" id="sync-st"></span><button class="btn sm" id="logout" type="button">Keluar</button></div>
   </header>
 
   <!-- BERANDA -->
@@ -511,15 +550,18 @@ input[type=time]::-webkit-date-and-time-value{text-align:left}
   </button>
 </nav>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
 /* ---------- data ---------- */
 const CATS = { out:["Makan","Transport","Belanja","Tagihan","Hiburan","Lainnya"], in:["Gaji","Bonus","Hadiah","Lainnya"] };
 let state = { tx:[], sched:[[],[],[],[],[],[],[]] };
 let kind = "out", cat = "", flt = "all", lastId = null;
 
+// status sinkronisasi Supabase (dideklarasikan di awal karena save() dipanggil saat startup)
+let sb = null, uid = null, ready = false, dirty = false, pushing = false, failed = false, pushTimer = null, lastSeen = null, chan = null, pullTimer = null;
 // penyimpanan dibungkus try/catch; kalau diblokir, data tetap hidup di memori
 function load(){ try{ const s = JSON.parse(localStorage.getItem("zaims-manager-v1")); if(s && s.tx) state = s; }catch(e){} delete state.tables; if (!Array.isArray(state.tasks)) state.tasks = []; if (!Array.isArray(state.sched) || state.sched.length !== 7) state.sched = [[],[],[],[],[],[],[]]; }
-function save(){ try{ localStorage.setItem("zaims-manager-v1", JSON.stringify(state)); }catch(e){} }
+function save(){ try{ localStorage.setItem("zaims-manager-v1", JSON.stringify(state)); }catch(e){} queuePush(); }
 
 const $ = id => document.getElementById(id);
 const rp = n => (n < 0 ? "-" : "") + "Rp" + Math.abs(Math.round(n)).toLocaleString("id-ID");
@@ -835,7 +877,7 @@ function renderDay(first){
 }
 function purgeSched(){
   const t = today(); let ch = false;
-  state.sched.forEach((a, d) => { const k = a.filter(it => !it.until || it.until >= t); if (k.length !== a.length){ state.sched[d] = k; ch = true; } });
+  state.sched.forEach((a, d) => { const k = a.filter(it => it.taskId || !it.until || it.until >= t); if (k.length !== a.length){ state.sched[d] = k; ch = true; } });
   if (ch) save();
 }
 function renderWeek(){
@@ -954,10 +996,18 @@ function kebab(label, fn){
   return b;
 }
 const menuEl = $("menu");
+let menuAt = 0;
 function openMenu(title, editLabel, delLabel, onEdit, onDel){
-  $("mn-title").textContent = title; $("mn-edit").textContent = editLabel; $("mn-del").textContent = delLabel;
-  $("mn-edit").onclick = () => { closeMenu(); onEdit(); };
-  $("mn-del").onclick = () => { closeMenu(); buzz(); onDel(); };
+  const eb = $("mn-edit"), db = $("mn-del");
+  $("mn-title").textContent = title; eb.textContent = editLabel; db.textContent = delLabel;
+  db.classList.remove("armed"); menuAt = Date.now();
+  eb.onclick = e => { e.preventDefault(); e.stopPropagation(); if (Date.now() - menuAt < 300) return; closeMenu(); setTimeout(onEdit, 60); };
+  db.onclick = e => {
+    e.preventDefault(); e.stopPropagation();
+    if (Date.now() - menuAt < 300) return;
+    if (!db.classList.contains("armed")){ db.classList.add("armed"); db.textContent = "Ketuk lagi untuk menghapus"; return; }
+    closeMenu(); buzz(); onDel();
+  };
   menuEl.classList.add("show");
 }
 function closeMenu(){ menuEl.classList.remove("show"); }
@@ -1204,6 +1254,153 @@ load();
 $("f-date").value = today(); $("f-date")._upd();
 state.tasks.forEach(t => { if (!t.synced || state.schedV !== 2) syncTaskSched(t); }); state.schedV = 2; save();
 fillCats(); renderAll(); renderWeek(); renderAgenda(); renderTasks(); initMedia();
+/* ---------- SUPABASE: login, daftar & sinkronisasi ---------- */
+const SB_URL = "https://ypdtaoccfxzquyfsiloy.supabase.co";
+const SB_KEY = "sb_publishable_2crOjnp8Rf4zhCt2bdO_Ug_rH4enKGH";   // kunci publik; aman di sisi browser
+const LS_KEY = "zaims-manager-v1", OWNER_KEY = "zaims-owner";
+const authEl = $("auth"), auMsg = $("au-msg");
+let auMode = "in";
+
+const sameTime = (a, b) => a && b && new Date(a).getTime() === new Date(b).getTime();
+function setSync(t){ const e = $("sync-st"); if (e) e.textContent = t; }
+function emptyState(){ return { tx:[], sched:[[],[],[],[],[],[],[]], tasks:[] }; }
+
+function applyRemote(d){
+  state = (d && typeof d === "object") ? d : emptyState();
+  if (!Array.isArray(state.tx)) state.tx = [];
+  delete state.tables;
+  if (!Array.isArray(state.tasks)) state.tasks = [];
+  if (!Array.isArray(state.sched) || state.sched.length !== 7) state.sched = [[],[],[],[],[],[],[]];
+  state.tasks.forEach(t => { if (!t.synced || state.schedV !== 2) syncTaskSched(t); }); state.schedV = 2;
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
+  renderAll(); renderWeek(); renderAgenda(); renderTasks();
+}
+
+function queuePush(){
+  if (!sb || !uid || !ready) return;
+  dirty = true; setSync("Menyimpan…");
+  clearTimeout(pushTimer); pushTimer = setTimeout(flush, 700);
+}
+async function flush(){
+  if (!dirty || !sb || !uid || !ready || pushing) return;
+  pushing = true; dirty = false; failed = false;
+  try{
+    const { data, error } = await sb.from("manager_state")
+      .upsert({ user_id:uid, data:state, updated_at:new Date().toISOString() })
+      .select("updated_at").single();
+    if (error) throw error;
+    lastSeen = data.updated_at; setSync("Tersinkron");
+  }catch(e){ dirty = true; failed = true; setSync("Belum tersimpan · mencoba lagi"); }
+  pushing = false;
+  if (dirty){ clearTimeout(pushTimer); pushTimer = setTimeout(flush, failed ? 5000 : 700); }
+}
+
+async function pull(){
+  if (!sb || !uid) return;
+  setSync("Menyinkronkan…");
+  const { data, error } = await sb.from("manager_state").select("data,updated_at").eq("user_id", uid).maybeSingle();
+  if (error){ setSync("Offline · memakai data lokal"); clearTimeout(pullTimer); pullTimer = setTimeout(pull, 10000); return; }
+  if (data){
+    if (!ready || !dirty){ lastSeen = data.updated_at; applyRemote(data.data); }
+    ready = true; setSync("Tersinkron");
+  } else {
+    // belum ada data di server: unggah data yang ada di perangkat ini (jika milik akun ini / belum bertuan)
+    ready = true; dirty = true; setSync("Menyimpan…"); await flush();
+  }
+}
+
+function subscribe(){
+  try{
+    if (chan) sb.removeChannel(chan);
+    chan = sb.channel("ms-" + uid).on("postgres_changes", { event:"*", schema:"public", table:"manager_state", filter:"user_id=eq." + uid }, p => {
+      const r = p.new; if (!r || !r.data) return;
+      if (sameTime(r.updated_at, lastSeen) || dirty || pushing) return;
+      lastSeen = r.updated_at; applyRemote(r.data); setSync("Tersinkron");
+    }).subscribe();
+  }catch(e){}
+}
+
+async function startSession(session){
+  uid = session.user.id; ready = false;
+  const owner = localStorage.getItem(OWNER_KEY);
+  if (owner && owner !== uid){ state = emptyState(); try{ localStorage.removeItem(LS_KEY); }catch(e){} renderAll(); renderWeek(); renderAgenda(); renderTasks(); }
+  try{ localStorage.setItem(OWNER_KEY, uid); }catch(e){}
+  authEl.hidden = true; $("acct").hidden = false;
+  await pull(); subscribe();
+}
+function showLogin(){ uid = null; ready = false; authEl.hidden = false; $("acct").hidden = true; }
+
+/* form login / daftar */
+function auSay(t, ok){ auMsg.textContent = t || ""; auMsg.classList.toggle("ok", !!ok); }
+function setAuMode(m){
+  auMode = m; auSay("");
+  $("au-seg").classList.toggle("is-in", false);
+  document.querySelectorAll("#au-seg button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  $("au-pass2-l").hidden = m !== "up";
+  $("au-pass").autocomplete = m === "up" ? "new-password" : "current-password";
+  $("au-go").textContent = m === "up" ? "Buat akun" : "Masuk";
+  $("au-sub").textContent = m === "up" ? "Buat akun baru. Datamu akan tersimpan di server." : "Masuk agar datamu tersimpan dan sinkron di semua perangkat.";
+  if (m === "up") $("au-seg").style.setProperty("--x", "1");
+}
+document.querySelectorAll("#au-seg button").forEach(b => b.addEventListener("click", () => {
+  buzz(); setAuMode(b.dataset.m);
+  $("au-seg").classList.toggle("is-in", b.dataset.m === "up");
+}));
+function auErr(e){
+  const m = (e && e.message || "").toLowerCase();
+  if (m.includes("invalid login")) return "Email atau kata sandi salah.";
+  if (m.includes("already registered")) return "Email ini sudah terdaftar. Silakan masuk.";
+  if (m.includes("not confirmed")) return "Email belum dikonfirmasi. Cek kotak masukmu.";
+  if (m.includes("password") && m.includes("least")) return "Kata sandi minimal 6 karakter.";
+  if (m.includes("valid email") || m.includes("invalid email")) return "Format email tidak valid.";
+  if (m.includes("rate limit") || m.includes("too many")) return "Terlalu banyak percobaan. Coba lagi sebentar lagi.";
+  if (m.includes("fetch") || m.includes("network")) return "Tidak ada koneksi internet.";
+  return "Terjadi kesalahan: " + (e && e.message || "coba lagi");
+}
+$("au-form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const email = $("au-email").value.trim(), pass = $("au-pass").value, btn = $("au-go");
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)){ auSay("Isi email yang valid."); $("au-email").focus(); return; }
+  if (pass.length < 6){ auSay("Kata sandi minimal 6 karakter."); $("au-pass").focus(); return; }
+  if (auMode === "up" && pass !== $("au-pass2").value){ auSay("Kata sandi tidak sama."); $("au-pass2").focus(); return; }
+  btn.disabled = true; auSay("");
+  try{
+    if (auMode === "up"){
+      const { data, error } = await sb.auth.signUp({ email, password:pass });
+      if (error) throw error;
+      if (data.user && data.user.identities && data.user.identities.length === 0){ auSay("Email ini sudah terdaftar. Silakan masuk."); return; }
+      if (!data.session){ setAuMode("in"); auSay("Akun dibuat. Cek emailmu untuk konfirmasi, lalu masuk.", true); return; }
+      await startSession(data.session);
+    } else {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password:pass });
+      if (error) throw error;
+      await startSession(data.session);
+    }
+    $("au-pass").value = ""; $("au-pass2").value = "";
+  }catch(e){ auSay(auErr(e)); }
+  finally{ btn.disabled = false; }
+});
+
+$("logout").addEventListener("click", async () => {
+  clearTimeout(pushTimer); await flush();
+  if (dirty && !confirm("Ada data yang belum tersimpan ke server. Tetap keluar?")) return;
+  try{ await sb.auth.signOut(); }catch(e){}
+  try{ localStorage.removeItem(LS_KEY); localStorage.removeItem(OWNER_KEY); }catch(e){}
+  location.reload();
+});
+
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && uid && ready && !dirty) pull(); });
+window.addEventListener("online", () => { if (uid){ if (dirty) flush(); else pull(); } });
+
+(async function initAuth(){
+  if (!window.supabase){ authEl.hidden = true; return; }   // tanpa koneksi ke pustaka: tetap jalan secara lokal
+  sb = window.supabase.createClient(SB_URL, SB_KEY);
+  sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT" && uid){ setTimeout(showLogin, 0); } });
+  try{
+    const { data } = await sb.auth.getSession();
+    if (data && data.session) await startSession(data.session); else showLogin();
+  }catch(e){ showLogin(); }
+})();
 </script>
 </body>
 </html>
