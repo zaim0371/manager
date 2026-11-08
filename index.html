@@ -145,10 +145,10 @@ li.tx.new{animation:pop .55s var(--spring)}
 /* tab bar bawah, lensa kaca meluncur */
 .tabbar{
   position:fixed;left:50%;transform:translateX(-50%);z-index:20;bottom:calc(14px + env(safe-area-inset-bottom,0px));
-  width:min(380px,calc(100% - 32px));padding:6px;display:grid;grid-template-columns:repeat(3,1fr);border-radius:99px;
+  width:min(420px,calc(100% - 32px));padding:6px;display:grid;grid-template-columns:repeat(4,1fr);border-radius:99px;
 }
 .lens{
-  position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 12px)/3);border-radius:99px;
+  position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 12px)/4);border-radius:99px;
   background:linear-gradient(150deg,var(--card),var(--card2));border:1px solid var(--edge);
   box-shadow:inset 0 1px 0 var(--inner),0 4px 12px var(--shadow);
   transition:transform .5s var(--spring);will-change:transform;
@@ -174,12 +174,11 @@ li.tx.new{animation:pop .55s var(--spring)}
 
 /* jadwal: galeri */
 [hidden]{display:none!important}
-.car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:22px;margin-top:14px;aspect-ratio:16/10;scrollbar-width:none;overscroll-behavior-x:contain}
+.car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:22px;margin-top:0;aspect-ratio:21/9;scrollbar-width:none;overscroll-behavior-x:contain}
 .car::-webkit-scrollbar{display:none}
 .slide{flex:0 0 100%;scroll-snap-align:center;scroll-snap-stop:always;position:relative;background:var(--field);overflow:hidden}
 .slide.add{border:2px dashed var(--edge);font:inherit;font-weight:600;color:var(--muted);display:grid;place-items:center;align-content:center;gap:8px;cursor:pointer}
 .slide img{width:100%;height:100%;object-fit:cover;display:block}
-.slide video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
 .pdf{position:absolute;inset:0;display:grid;place-items:center;background:var(--field)}
 .pdf canvas{width:100%;height:100%;object-fit:contain;background:#fff}
 .pdfic{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;font-weight:800;color:#fff;background:var(--out)}
@@ -187,14 +186,22 @@ li.tx.new{animation:pop .55s var(--spring)}
 .x{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;font-size:.95rem;transition:transform .3s var(--spring)}
 .x:active{transform:scale(.85)}
 .go{position:absolute;left:12px;bottom:12px;padding:8px 16px;border-radius:99px;background:var(--accent);color:#fff;font-weight:700;font-size:.85rem;text-decoration:none}
-.drop{width:100%;aspect-ratio:16/10;margin-top:14px;border:2px dashed var(--edge);border-radius:22px;background:var(--field);color:var(--muted);display:grid;place-items:center;align-content:center;gap:8px;font:inherit;font-weight:600;cursor:pointer;transition:transform .3s var(--spring)}
+.drop{width:100%;aspect-ratio:21/9;margin-top:0;border:2px dashed var(--edge);border-radius:22px;background:var(--field);color:var(--muted);display:grid;place-items:center;align-content:center;gap:8px;font:inherit;font-weight:600;cursor:pointer;transition:transform .3s var(--spring)}
 .drop:active{transform:scale(.98)}
-.dots{display:flex;justify-content:center;gap:7px;margin-top:12px;min-height:8px}
+.dots{display:flex;justify-content:center;gap:7px;margin-top:8px;min-height:8px}
+.dots:empty{display:none}
 .dots i{width:7px;height:7px;border-radius:50%;background:var(--muted);opacity:.4;transition:transform .35s var(--spring),opacity .25s,background-color .25s}
 .dots i.on{opacity:1;transform:scale(1.5);background:var(--accent)}
 
 /* jadwal mingguan */
-.day{background:var(--field);border:1px solid var(--edge);border-radius:22px;padding:14px;margin-top:12px}
+.dtabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;margin-top:14px;padding:0 14px;border-radius:22px;background:var(--field);border:1px solid var(--edge)}
+.dtabs::-webkit-scrollbar{display:none}
+.dtab{position:relative;flex:none;border:0;background:transparent;font:inherit;font-size:1rem;font-weight:600;color:var(--muted);padding:14px 12px 16px;cursor:pointer;transition:color .25s}
+.dtab::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:4px;border-radius:4px 4px 0 0;background:var(--accent);transform:scaleX(0);transition:transform .35s var(--spring)}
+.dtab.on{color:var(--accent)}
+.dtab.on::after{transform:scaleX(1)}
+.dtab .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:middle;opacity:.8}
+.day{min-height:160px;background:var(--field);border:1px solid var(--edge);border-radius:22px;padding:14px;margin-top:12px;animation:rise .4s var(--smooth) both}
 .day.today{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
 .day h3{font-size:1rem;font-weight:700}
 .day .pill{background:var(--accent);color:#fff}
@@ -206,6 +213,68 @@ li.tx.new{animation:pop .55s var(--spring)}
 .addrow input{height:46px;border-radius:99px;padding:0 18px}
 .addrow button{width:46px;height:46px;flex:none;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:1.4rem;cursor:pointer;transition:transform .3s var(--spring)}
 .addrow button:active{transform:scale(.85)}
+
+.seg.acc .thumb,.seg.acc.is-in .thumb{background:var(--accent)}
+.picks.off{opacity:.4;pointer-events:none}
+.items small{display:block;font-size:.74rem;color:var(--muted);margin-top:1px}
+.hint{font-size:.8rem;color:var(--muted);margin-top:-4px}
+
+div.drop{cursor:default}
+div.drop:active{transform:none}
+.agenda{cursor:pointer}
+.agenda .blk+.blk{margin-top:16px}
+.agenda .items{margin-top:8px}
+.agenda .items li{margin-bottom:6px}
+.agenda .more{font-size:.8rem;color:var(--muted);padding:2px 4px}
+
+input[type=time]{display:block;text-align:left}
+input[type=time]::-webkit-date-and-time-value{text-align:left}
+
+/* tugas */
+.task{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
+.task:last-child{border-bottom:0}
+.chk{flex:none;width:26px;height:26px;margin-top:1px;border-radius:50%;border:2px solid var(--muted);background:transparent;color:#fff;cursor:pointer;display:grid;place-items:center;transition:background-color .25s,border-color .25s,transform .3s var(--spring)}
+.chk:active{transform:scale(.85)}
+.chk svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .2s}
+.task.done .chk{background:var(--in);border-color:var(--in)}
+.task.done .chk svg{opacity:1}
+.task .body{flex:1;min-width:0}
+.task .body b{display:block;word-break:break-word}
+.task.done .body b{text-decoration:line-through;color:var(--muted)}
+.task .meta{font-size:.82rem;color:var(--muted);margin-top:2px;word-break:break-word}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--field);color:var(--muted)}
+.tag.late{background:color-mix(in srgb,var(--out) 18%,transparent);color:var(--out)}
+.tag.soon{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+
+.field{display:flex;align-items:center;gap:10px;width:100%;height:50px;padding:0 14px;border-radius:18px;font:inherit;font-size:1rem;color:var(--muted);text-align:left;cursor:pointer;background:var(--field);border:1px solid var(--edge);box-shadow:inset 0 1px 3px rgba(0,0,0,.07);transition:transform .3s var(--spring)}
+.field:active{transform:scale(.98)}
+.field svg{flex:none;width:20px;height:20px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.field span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field.has{color:var(--ink);font-weight:600}
+.qk{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.cal-h b{text-transform:capitalize}
+.cal-nav{border:0;background:var(--field);color:var(--ink);width:38px;height:38px;border-radius:50%;font:inherit;font-size:1.1rem;cursor:pointer;transition:transform .3s var(--spring)}
+.cal-nav:active{transform:scale(.85)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cal .wd{font-size:.72rem;font-weight:700;color:var(--muted);padding:6px 0}
+.cal button{aspect-ratio:1;border:0;border-radius:50%;background:transparent;color:var(--ink);font:inherit;font-weight:600;cursor:pointer;transition:background-color .2s,transform .25s var(--spring)}
+.cal button:active{transform:scale(.86)}
+.cal button.today{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.cal button.on{background:var(--accent);color:#fff}
+.tbox{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 0 4px}
+.tin{width:104px;height:84px;padding:0;text-align:center;font-size:2.6rem;font-weight:800;letter-spacing:-.02em;border-radius:26px}
+.tsep{font-size:2.4rem;font-weight:800;color:var(--muted)}
+.pgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+.pgrid .chip{padding:10px 0;text-align:center}
+
+.kebab{flex:none;border:0;background:transparent;color:var(--muted);cursor:pointer;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;transition:transform .3s var(--spring),background-color .2s}
+.kebab svg{width:20px;height:20px;fill:currentColor}
+.kebab:active{transform:scale(.85);background:var(--field)}
+.task .kebab{margin-top:-4px}
+.menu{display:grid;gap:10px}
+.btn.danger{color:var(--out)}
 
 /* tombol plus */
 .fab{
@@ -224,8 +293,8 @@ li.tx.new{animation:pop .55s var(--spring)}
 .sheet.show{opacity:1;pointer-events:auto}
 .sheet .glass{background:var(--sheet);width:min(560px,100%);max-height:92vh;overflow:auto;padding:22px 22px calc(22px + env(safe-area-inset-bottom,0px));transform:translateY(110%);transition:transform .55s var(--spring)}
 .sheet.show .glass{transform:none}
-.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));z-index:40;padding:12px 22px;border-radius:99px;font-weight:700;white-space:nowrap;transform:translate(-50%,-140%);transition:transform .55s var(--spring)}
-.toast.show{transform:translate(-50%,0)}
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));z-index:60;padding:12px 22px;border-radius:99px;font-weight:700;white-space:nowrap;transform:translate(-50%,-240%);opacity:0;pointer-events:none;transition:transform .55s var(--spring),opacity .3s}
+.toast.show{transform:translate(-50%,0);opacity:1}
 
 @media (max-width:430px){.fgrid{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
@@ -253,6 +322,11 @@ li.tx.new{animation:pop .55s var(--spring)}
         <span class="muted">Pemasukan<b class="in" id="w-in">Rp0</b></span>
         <span class="muted" style="text-align:right">Pengeluaran<b class="out" id="w-out">Rp0</b></span>
       </div>
+    </div>
+
+    <div class="card glass agenda rise" id="agenda" role="button" tabindex="0" aria-label="Buka jadwal">
+      <div class="row"><h2>Jadwal</h2><span class="muted">Lihat semua</span></div>
+      <div id="ag-body"></div>
     </div>
   </section>
 
@@ -286,21 +360,37 @@ li.tx.new{animation:pop .55s var(--spring)}
 
   <!-- JADWAL -->
   <section id="jadwal" class="page">
-    <div class="card glass rise">
-      <h2>Galeri</h2>
-      <button class="drop" id="drop" type="button">
-        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Tambah PDF, gambar, atau video
-      </button>
+    <div class="card glass rise" style="padding:14px">
+      <div class="drop" id="drop"><span>Belum ada file</span></div>
       <div class="car" id="car" hidden></div>
       <div class="dots" id="dots"></div>
-      <input type="file" id="mfile" hidden multiple accept="image/*,video/*,application/pdf">
+      <input type="file" id="mfile" hidden multiple accept="image/*,application/pdf">
     </div>
 
     <div class="card glass rise">
       <h2>Jadwal mingguan</h2>
       <div id="week"></div>
     </div>
+
+    <button class="fab" id="fab2" type="button" aria-label="Tambah">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
+
+  <!-- TUGAS -->
+  <section id="tugas" class="page">
+    <div class="card glass rise">
+      <div class="row"><h2>Tugas</h2><span class="muted" id="t-sum"></span></div>
+      <div class="filters" id="t-filters">
+        <button class="chip on" type="button" data-f="act">Aktif</button>
+        <button class="chip" type="button" data-f="done">Selesai</button>
+      </div>
+      <ul id="t-list"></ul>
+    </div>
+
+    <button class="fab" id="fab3" type="button" aria-label="Tambah tugas">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
   </section>
 </main>
 
@@ -318,8 +408,88 @@ li.tx.new{animation:pop .55s var(--spring)}
       <label class="full">Jumlah<div class="amt"><span>Rp</span><input id="f-amt" type="text" inputmode="numeric" autocomplete="off" placeholder="0"></div></label>
       <div class="full"><div class="lbl">Kategori</div><div class="picks" id="f-cat"></div></div>
       <label>Catatan<input id="f-note" type="text" maxlength="60" placeholder="Opsional"></label>
-      <label>Tanggal<input id="f-date" type="date"></label>
+      <div style="min-width:0"><div class="lbl">Tanggal</div><button class="field" id="f-date-b" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span></span></button><input id="f-date" type="hidden"></div>
       <button class="btn pri full" id="save" type="button">Simpan transaksi</button>
+    </div>
+  </div>
+</div>
+
+<!-- lembar tambah kegiatan (dibuka tombol plus di Jadwal) -->
+<div class="sheet" id="sheet2">
+  <div class="glass blur">
+    <div class="grab"></div>
+    <div class="row" style="margin-bottom:16px"><h2 id="sh2-title">Tambah</h2><button class="btn sm" id="x2" type="button">Tutup</button></div>
+    <div class="fgrid" style="margin-top:0">
+      <div class="seg acc full" id="seg3" role="group" aria-label="Jenis tambahan">
+        <span class="thumb"></span>
+        <button type="button" data-m="act" class="on">Kegiatan</button>
+        <button type="button" data-m="file">File</button>
+      </div>
+      <label class="full pa">Kegiatan<input id="s-text" type="text" maxlength="80" autocomplete="off" placeholder="Tulis kegiatan"></label>
+      <div class="full pa" id="s-freq"><div class="lbl">Frekuensi</div>
+        <div class="seg acc" id="seg2" role="group" aria-label="Frekuensi">
+          <span class="thumb"></span>
+          <button type="button" data-a="0" class="on">Hari itu saja</button>
+          <button type="button" data-a="1">Semua 7 hari</button>
+        </div>
+      </div>
+      <div class="full pa"><div class="lbl">Hari</div><div class="picks" id="s-days"></div></div>
+      <div class="full pa"><div class="lbl">Berapa lama</div><div class="picks" id="s-dur"></div></div>
+      <div class="full hint pa" id="s-hint"></div>
+      <button class="btn pri full pa" id="s-save" type="button">Simpan kegiatan</button>
+      <button class="drop full pf" id="pick" type="button" hidden style="aspect-ratio:auto;min-height:140px;margin-top:0">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Pilih gambar atau PDF
+      </button>
+      <div class="full hint pf" hidden>File disimpan di perangkat ini dan tampil di Galeri.</div>
+    </div>
+  </div>
+</div>
+
+<!-- lembar tambah tugas -->
+<div class="sheet" id="sheet3">
+  <div class="glass blur">
+    <div class="grab"></div>
+    <div class="row" style="margin-bottom:16px"><h2 id="sh3-title">Tambah tugas</h2><button class="btn sm" id="x3" type="button">Tutup</button></div>
+    <div class="fgrid" style="margin-top:0">
+      <label class="full">Judul tugas<input id="t-title" type="text" maxlength="80" autocomplete="off" placeholder="Contoh: Laporan Pemrograman Web"></label>
+      <label class="full">Catatan<input id="t-note" type="text" maxlength="120" autocomplete="off" placeholder="Opsional"></label>
+      <div class="full" style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px">
+        <div style="min-width:0"><div class="lbl">Deadline</div><button class="field" id="t-dl-b" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span></span></button><input id="t-dl" type="hidden"></div>
+        <div style="min-width:0"><div class="lbl">Jam</div><button class="field" id="t-tm-b" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span></span></button><input id="t-tm" type="hidden"></div>
+      </div>
+      <div class="full" style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px">
+        <div style="min-width:0"><div class="lbl">Kerjakan pada</div><button class="field" id="t-do-b" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span></span></button><input id="t-do" type="hidden"></div>
+        <div style="min-width:0"><div class="lbl">Jam</div><button class="field" id="t-dotm-b" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span></span></button><input id="t-dotm" type="hidden"></div>
+      </div>
+      <div class="full"><div class="lbl">Prioritas</div><div class="picks" id="t-prio"></div></div>
+      <button class="btn pri full" id="t-save" type="button">Simpan tugas</button>
+    </div>
+  </div>
+</div>
+
+<!-- menu titik tiga: edit / hapus -->
+<div class="sheet" id="menu" style="z-index:55">
+  <div class="glass blur">
+    <div class="grab"></div>
+    <h2 id="mn-title" style="margin-bottom:14px;word-break:break-word"></h2>
+    <div class="menu">
+      <button class="btn" id="mn-edit" type="button">Edit</button>
+      <button class="btn danger" id="mn-del" type="button">Hapus</button>
+      <button class="btn" id="mn-x" type="button">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- pemilih tanggal & jam buatan sendiri -->
+<div class="sheet" id="pk" style="z-index:50">
+  <div class="glass blur">
+    <div class="grab"></div>
+    <div class="row" style="margin-bottom:14px"><h2 id="pk-title"></h2><button class="btn sm" id="pk-x" type="button">Tutup</button></div>
+    <div id="pk-body"></div>
+    <div class="row" style="margin-top:16px;gap:10px">
+      <button class="btn" id="pk-clear" type="button" style="flex:1">Hapus</button>
+      <button class="btn pri" id="pk-ok" type="button" style="flex:1">Pilih</button>
     </div>
   </div>
 </div>
@@ -336,6 +506,9 @@ li.tx.new{animation:pop .55s var(--spring)}
   <button class="tab" type="button" data-page="jadwal" data-i="2">
     <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Jadwal
   </button>
+  <button class="tab" type="button" data-page="tugas" data-i="3">
+    <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="3.5"/><path d="M9.5 4.5h5M9 13.2l2 2 4-4.4"/></svg>Tugas
+  </button>
 </nav>
 
 <script>
@@ -345,7 +518,7 @@ let state = { tx:[], sched:[[],[],[],[],[],[],[]] };
 let kind = "out", cat = "", flt = "all", lastId = null;
 
 // penyimpanan dibungkus try/catch; kalau diblokir, data tetap hidup di memori
-function load(){ try{ const s = JSON.parse(localStorage.getItem("zaims-manager-v1")); if(s && s.tx) state = s; }catch(e){} delete state.tables; if (!Array.isArray(state.sched) || state.sched.length !== 7) state.sched = [[],[],[],[],[],[],[]]; }
+function load(){ try{ const s = JSON.parse(localStorage.getItem("zaims-manager-v1")); if(s && s.tx) state = s; }catch(e){} delete state.tables; if (!Array.isArray(state.tasks)) state.tasks = []; if (!Array.isArray(state.sched) || state.sched.length !== 7) state.sched = [[],[],[],[],[],[],[]]; }
 function save(){ try{ localStorage.setItem("zaims-manager-v1", JSON.stringify(state)); }catch(e){} }
 
 const $ = id => document.getElementById(id);
@@ -387,8 +560,10 @@ function go(p, i){
     el.style.setProperty("--i", n); el.classList.remove("rise"); void el.offsetWidth; el.classList.add("rise");
   });
   if (p === "keuangan") renderCats();
+  if (p === "beranda") renderAgenda();
+  if (p === "tugas") renderTasks();
   window.scrollTo(0, 0);
-  if (p === "jadwal") last = Date.now();
+  if (p === "jadwal"){ last = Date.now(); renderWeek(); }
 }
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => { buzz(); go(t.dataset.page, +t.dataset.i); }));
 
@@ -425,7 +600,7 @@ function renderCats(){
 function renderList(){
   const ul = $("list"); ul.innerHTML = "";
   const rows = state.tx.filter(x => flt === "all" || x.type === flt).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-  if (!rows.length){ ul.innerHTML = '<li class="empty">Belum ada transaksi. Tekan tombol + untuk mencatat.</li>'; return; }
+  if (!rows.length){ ul.innerHTML = '<li class="empty">Belum ada transaksi.</li>'; return; }
   rows.forEach(x => {
     const li = document.createElement("li"); li.className = "tx" + (x.id === lastId ? " new" : "");
     const l = document.createElement("div"); l.className = "l";
@@ -488,7 +663,7 @@ $("save").addEventListener("click", saveTx);
 $("filters").addEventListener("click", e => {
   const b = e.target.closest(".chip"); if (!b) return;
   flt = b.dataset.f;
-  document.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === b));
+  $("filters").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === b));
   renderList();
 });
 
@@ -499,7 +674,7 @@ function closeSheet(){ sheet.classList.remove("show"); }
 $("fab").addEventListener("click", () => { buzz(); openSheet(); });
 $("x").addEventListener("click", closeSheet);
 sheet.addEventListener("click", e => { if (e.target === sheet) closeSheet(); });
-addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+addEventListener("keydown", e => { if (e.key === "Escape"){ closeSheet(); closeSheet2(); closeSheet3(); closePk(); closeMenu(); } });
 
 /* ekspor CSV */
 $("csv").addEventListener("click", () => {
@@ -515,14 +690,14 @@ $("csv").addEventListener("click", () => {
 
 /* ---------- JADWAL: galeri (file disimpan di IndexedDB) ---------- */
 let media = [], db = null, last = 0, pdfLib = null, raf2;
-const kindOf = f => /^image\//.test(f.type) ? "image" : /^video\//.test(f.type) ? "video" : (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) ? "pdf" : null;
+const kindOf = f => /^image\//.test(f.type) ? "image" : (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) ? "pdf" : null;
 function openDb(){ return new Promise(ok => { try{ const r = indexedDB.open("zaims-media", 1); r.onupgradeneeded = () => r.result.createObjectStore("m", { keyPath:"id" }); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); }catch(e){ ok(null); } }); }
 const store = mode => db.transaction("m", mode).objectStore("m");
 function dbPut(m){ try{ db && store("readwrite").put({ id:m.id, name:m.name, kind:m.kind, blob:m.blob }); }catch(e){} }
 function dbDel(id){ try{ db && store("readwrite").delete(id); }catch(e){} }
 async function initMedia(){
   db = await openDb();
-  if (db) await new Promise(ok => { try{ const q = store("readonly").getAll(); q.onsuccess = () => { media = q.result.sort((a, b) => a.id - b.id).map(m => ({ ...m, url:URL.createObjectURL(m.blob) })); ok(); }; q.onerror = ok; }catch(e){ ok(); } });
+  if (db) await new Promise(ok => { try{ const q = store("readonly").getAll(); q.onsuccess = () => { media = q.result.filter(m => { if (m.kind === "video"){ dbDel(m.id); return false; } return true; }).sort((a, b) => a.id - b.id).map(m => ({ ...m, url:URL.createObjectURL(m.blob) })); ok(); }; q.onerror = ok; }catch(e){ ok(); } });
   renderMedia();
 }
 
@@ -558,7 +733,6 @@ function renderMedia(){
     const s = document.createElement("div"); s.className = "slide";
     const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = m.name;
     if (m.kind === "image"){ const im = new Image(); im.src = m.url; im.alt = m.name; im.draggable = false; s.appendChild(im); }
-    else if (m.kind === "video"){ const v = document.createElement("video"); v.src = m.url; v.controls = true; v.playsInline = true; v.preload = "metadata"; s.appendChild(v); }
     else {
       const b = document.createElement("div"); b.className = "pdf"; b.innerHTML = '<div class="pdfic">PDF</div>'; s.appendChild(b);
       const a = document.createElement("a"); a.className = "go"; a.textContent = "Buka PDF"; a.href = m.url; a.target = "_blank"; a.rel = "noopener"; s.appendChild(a);
@@ -568,11 +742,6 @@ function renderMedia(){
     x.addEventListener("click", () => { media = media.filter(k => k !== m); dbDel(m.id); URL.revokeObjectURL(m.url); renderMedia(); toast("File dihapus"); });
     s.append(nm, x); car.appendChild(s); dots.appendChild(document.createElement("i"));
   });
-  if (media.length){
-    const a = document.createElement("button"); a.type = "button"; a.className = "slide add";
-    a.innerHTML = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Tambah file';
-    a.addEventListener("click", () => $("mfile").click()); car.appendChild(a);
-  }
   setDots(0);
 }
 const idx = () => { const c = $("car"); return c.clientWidth ? Math.round(c.scrollLeft / c.clientWidth) : 0; };
@@ -585,7 +754,6 @@ $("car").addEventListener("scroll", () => { cancelAnimationFrame(raf2); raf2 = r
 setInterval(() => {
   if (media.length < 2 || document.hidden || !$("jadwal").classList.contains("active")) return;
   if (Date.now() - last < 5000) return;
-  if ([...$("car").querySelectorAll("video")].some(v => !v.paused && !v.ended)) return;
   show(idx() >= media.length - 1 ? 0 : idx() + 1);
 }, 5000);
 
@@ -600,52 +768,442 @@ function addFiles(list){
   last = Date.now(); renderMedia(); toast(n + " file ditambahkan");
   requestAnimationFrame(() => show(media.length - n));
 }
-$("drop").addEventListener("click", () => $("mfile").click());
-$("mfile").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+$("mfile").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; closeSheet2(); });
 
 /* ---------- JADWAL: mingguan Senin sampai Minggu ---------- */
 const DAYS = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
 const todayIdx = () => (new Date().getDay() + 6) % 7;
 
+function updateDot(d){
+  const b = document.querySelectorAll(".dtab")[d]; if (!b) return;
+  const has = state.sched[d].length > 0, dot = b.querySelector(".dot");
+  if (has && !dot){ const i = document.createElement("i"); i.className = "dot"; b.appendChild(i); }
+  else if (!has && dot) dot.remove();
+}
 function renderItems(d, ul, newId){
-  ul.innerHTML = "";
-  const items = state.sched[d];
-  if (!items.length){ const li = document.createElement("li"); li.className = "none"; li.textContent = "Belum ada kegiatan"; ul.appendChild(li); return; }
+  ul.innerHTML = ""; updateDot(d);
+  const items = state.sched[d].slice().sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.time || "").localeCompare(b.time || ""));
+  if (!items.length) return;
   items.forEach(it => {
     const li = document.createElement("li"); if (it.id === newId) li.className = "new";
-    const t = document.createElement("span"); t.textContent = it.text;
-    const x = document.createElement("button"); x.type = "button"; x.className = "del"; x.textContent = "✕"; x.setAttribute("aria-label", "Hapus kegiatan");
-    x.addEventListener("click", () => { state.sched[d] = state.sched[d].filter(k => k !== it); save(); renderItems(d, ul); buzz(); });
-    li.append(t, x); ul.appendChild(li);
+    const t = document.createElement("div"); t.append(it.text);
+    schedLines(it).forEach(l => { const sm = document.createElement("small"); sm.textContent = l; t.appendChild(sm); });
+    const linked = !!it.taskId;
+    const k = kebab("Menu kegiatan", () => openMenu(it.text, linked ? "Edit tugas" : "Edit", linked ? "Hapus dari jadwal" : "Hapus",
+      () => { linked ? editTask(it.taskId) : openSheet2({ d, it }); },
+      () => { state.sched[d] = state.sched[d].filter(x => x !== it); save(); renderItems(d, ul); toast(linked ? "Dihapus dari jadwal" : "Kegiatan dihapus"); }));
+    li.append(t, k); ul.appendChild(li);
   });
 }
 
-function renderWeek(){
+let selDay = todayIdx(), tabsEl = null, panelEl = null;
+
+// tab hari dibuat sekali saja; yang diganti hanya isi panel di bawahnya (supaya scroll tidak lompat)
+function buildTabs(){
   const box = $("week"); box.innerHTML = "";
+  tabsEl = document.createElement("div"); tabsEl.className = "dtabs"; tabsEl.setAttribute("role", "tablist");
   DAYS.forEach((name, d) => {
-    const day = document.createElement("div"); day.className = "day" + (d === todayIdx() ? " today" : "");
-    const head = document.createElement("div"); head.className = "row";
-    const h = document.createElement("h3"); h.textContent = name; head.appendChild(h);
-    if (d === todayIdx()){ const pl = document.createElement("span"); pl.className = "pill"; pl.textContent = "Hari ini"; head.appendChild(pl); }
-    const ul = document.createElement("ul"); ul.className = "items"; renderItems(d, ul);
-    const add = document.createElement("div"); add.className = "addrow";
-    const inp = document.createElement("input"); inp.type = "text"; inp.maxLength = 80; inp.placeholder = "Tulis kegiatan"; inp.setAttribute("aria-label", "Kegiatan hari " + name);
-    const btn = document.createElement("button"); btn.type = "button"; btn.textContent = "+"; btn.setAttribute("aria-label", "Tambah kegiatan " + name);
-    const addItem = () => {
-      const text = inp.value.trim();
-      if (!text){ inp.classList.remove("shake"); void inp.offsetWidth; inp.classList.add("shake"); inp.focus(); return; }
-      const it = { id:Date.now(), text }; state.sched[d].push(it); save(); inp.value = ""; renderItems(d, ul, it.id); buzz();
-    };
-    btn.addEventListener("click", addItem);
-    inp.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); addItem(); } });
-    add.append(inp, btn); day.append(head, ul, add); box.appendChild(day);
+    const b = document.createElement("button"); b.type = "button"; b.className = "dtab";
+    b.setAttribute("role", "tab"); b.textContent = name;
+    b.addEventListener("click", () => {
+      if (d === selDay) return;
+      selDay = d; buzz(); markTabs(true); renderDay();
+    });
+    tabsEl.appendChild(b);
+  });
+  panelEl = document.createElement("div");
+  box.append(tabsEl, panelEl);
+  DAYS.forEach((_, d) => updateDot(d));
+  markTabs(false); renderDay(true);
+}
+function markTabs(smooth){
+  [...tabsEl.children].forEach((b, d) => { b.classList.toggle("on", d === selDay); b.setAttribute("aria-selected", d === selDay); });
+  const on = tabsEl.children[selDay];
+  if (on && tabsEl.clientWidth) tabsEl.scrollTo({ left: on.offsetLeft - (tabsEl.clientWidth - on.offsetWidth) / 2, behavior: smooth && !still ? "smooth" : "auto" });
+}
+function renderDay(first){
+  const d = selDay, name = DAYS[d], y = window.scrollY;
+  const day = document.createElement("div"); day.className = "day" + (d === todayIdx() ? " today" : "");
+  if (!first) day.style.animation = "none";
+  const head = document.createElement("div"); head.className = "row";
+  const h = document.createElement("h3"); h.textContent = name; head.appendChild(h);
+  if (d === todayIdx()){ const pl = document.createElement("span"); pl.className = "pill"; pl.textContent = "Hari ini"; head.appendChild(pl); }
+  const ul = document.createElement("ul"); ul.className = "items"; renderItems(d, ul);
+  day.append(head, ul);
+  panelEl.replaceChildren(day);
+  if (!first) window.scrollTo(0, y);
+}
+function purgeSched(){
+  const t = today(); let ch = false;
+  state.sched.forEach((a, d) => { const k = a.filter(it => !it.until || it.until >= t); if (k.length !== a.length){ state.sched[d] = k; ch = true; } });
+  if (ch) save();
+}
+function renderWeek(){
+  purgeSched();
+  if (!tabsEl) buildTabs();
+  else { DAYS.forEach((_, d) => updateDot(d)); markTabs(false); renderDay(); }
+}
+
+/* ---------- JADWAL: popup tambah kegiatan ---------- */
+const DURS = [{ l:"Permanen", n:0 }, { l:"1 Minggu", n:7 }, { l:"2 Minggu", n:14 }, { l:"1 Bulan", n:30 }];
+const iso = d => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+let sAll = false, sDay = 0, sDur = 0, sEdit = null;
+const sheet2 = $("sheet2");
+
+function chips(box, labels, sel, pick){
+  box.innerHTML = "";
+  labels.forEach((l, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip" + (i === sel() ? " on" : ""); b.textContent = l;
+    b.addEventListener("click", () => { pick(i); [...box.children].forEach((x, n) => x.classList.toggle("on", n === i)); buzz(); hint(); });
+    box.appendChild(b);
   });
 }
+function hint(){
+  const who = sAll ? "semua hari" : DAYS[sDay];
+  if (sDur === -1 && sEdit){ $("s-hint").textContent = "Tampil di " + who + " sampai " + fmtShort(sEdit.it.until) + "."; return; }
+  const n = DURS[sDur].n;
+  $("s-hint").textContent = n ? "Tampil di " + who + ", lalu hilang otomatis setelah " + DURS[sDur].l.toLowerCase() + "." : "Tampil di " + who + " dan tidak akan hilang sampai kamu hapus.";
+}
+let sMode = "act";
+function setMode(m){
+  sMode = m;
+  $("seg3").classList.toggle("is-in", m === "file");
+  document.querySelectorAll("#seg3 button").forEach(x => x.classList.toggle("on", x.dataset.m === m));
+  document.querySelectorAll("#sheet2 .pa").forEach(e => { e.hidden = m !== "act"; });
+  document.querySelectorAll("#sheet2 .pf").forEach(e => { e.hidden = m !== "file"; });
+}
+document.querySelectorAll("#seg3 button").forEach(b => b.addEventListener("click", () => { setMode(b.dataset.m); buzz(); }));
+$("pick").addEventListener("click", () => $("mfile").click());
+function openSheet2(ed){
+  sEdit = ed || null;
+  setMode("act");
+  sAll = false; sDay = ed ? ed.d : selDay; sDur = ed ? (ed.it.until ? -1 : 0) : 0;
+  $("s-text").value = ed ? ed.it.text : ""; $("seg2").classList.remove("is-in"); $("s-days").classList.remove("off");
+  document.querySelectorAll("#seg2 button").forEach((x, n) => x.classList.toggle("on", n === 0));
+  chips($("s-days"), DAYS, () => sDay, i => { sDay = i; });
+  chips($("s-dur"), DURS.map(x => x.l), () => sDur, i => { sDur = i; });
+  $("seg3").hidden = !!ed; $("s-freq").hidden = !!ed;
+  $("sh2-title").textContent = ed ? "Edit kegiatan" : "Tambah";
+  $("s-save").textContent = ed ? "Simpan perubahan" : "Simpan kegiatan";
+  hint(); sheet2.classList.add("show"); setTimeout(() => $("s-text").focus(), 350);
+}
+function closeSheet2(){ sheet2.classList.remove("show"); }
+document.querySelectorAll("#seg2 button").forEach(b => b.addEventListener("click", () => {
+  sAll = b.dataset.a === "1";
+  $("seg2").classList.toggle("is-in", sAll);
+  $("s-days").classList.toggle("off", sAll);
+  document.querySelectorAll("#seg2 button").forEach(x => x.classList.toggle("on", x === b));
+  hint(); buzz();
+}));
+function saveSched(){
+  const text = $("s-text").value.trim();
+  if (!text){ const f = $("s-text"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); f.focus(); toast("Tulis kegiatan dulu"); return; }
+  if (sEdit){
+    const { d, it } = sEdit; it.text = text;
+    if (sDur !== -1){ const n = DURS[sDur].n; if (n){ const e = new Date(); e.setDate(e.getDate() + n - 1); it.until = iso(e); } else delete it.until; }
+    if (sDay !== d){ state.sched[d] = state.sched[d].filter(x => x !== it); state.sched[sDay].push(it); }
+    sEdit = null; save(); buzz(); closeSheet2(); selDay = sDay;
+    markTabs(true); renderDay(); DAYS.forEach((_, i) => updateDot(i)); renderAgenda(); toast("Perubahan disimpan"); return;
+  }
+  const n = DURS[sDur].n; let until = null;
+  if (n){ const e = new Date(); e.setDate(e.getDate() + n - 1); until = iso(e); }
+  const days = sAll ? [0, 1, 2, 3, 4, 5, 6] : [sDay];
+  days.forEach((d, i) => { const it = { id:Date.now() + i, text }; if (until) it.until = until; state.sched[d].push(it); });
+  save(); buzz(); closeSheet2();
+  if (!sAll) selDay = sDay;
+  markTabs(true); renderDay(); DAYS.forEach((_, d) => updateDot(d));
+  toast(sAll ? "Ditambahkan ke 7 hari" : "Ditambahkan ke " + DAYS[sDay]);
+}
+$("fab2").addEventListener("click", () => { buzz(); openSheet2(); });
+$("x2").addEventListener("click", closeSheet2);
+$("s-save").addEventListener("click", saveSched);
+$("s-text").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); saveSched(); } });
+sheet2.addEventListener("click", e => { if (e.target === sheet2) closeSheet2(); });
+
+/* ---------- BERANDA: widget jadwal hari ini & besok ---------- */
+function renderAgenda(){
+  purgeSched();
+  const box = $("ag-body"); box.innerHTML = "";
+  [0, 1].forEach(off => {
+    const d = (todayIdx() + off) % 7;
+    const dt = new Date(); dt.setDate(dt.getDate() + off);
+    const key = iso(dt);
+    const items = state.sched[d].filter(it => it.date ? it.date === key : (!it.until || it.until >= key)).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
+    const blk = document.createElement("div"); blk.className = "blk";
+    const head = document.createElement("div"); head.className = "row";
+    const h = document.createElement("h3"); h.style.fontSize = "1rem"; h.textContent = (off ? "Besok" : "Hari ini") + " · " + DAYS[d];
+    const pl = document.createElement("span"); pl.className = "pill"; pl.textContent = items.length ? items.length + " kegiatan" : "Kosong";
+    head.append(h, pl);
+    const ul = document.createElement("ul"); ul.className = "items";
+    if (!items.length){ const li = document.createElement("li"); li.className = "none"; li.textContent = "Tidak ada kegiatan"; ul.appendChild(li); }
+    items.slice(0, 4).forEach(it => { const li = document.createElement("li"); const t = document.createElement("div"); t.append(it.text); schedLines(it).forEach(l => { const sm = document.createElement("small"); sm.textContent = l; t.appendChild(sm); }); li.appendChild(t); ul.appendChild(li); });
+    if (items.length > 4){ const m = document.createElement("li"); m.className = "none more"; m.textContent = "+" + (items.length - 4) + " lagi"; ul.appendChild(m); }
+    blk.append(head, ul); box.appendChild(blk);
+  });
+}
+const openJadwal = () => { buzz(); go("jadwal", 2); };
+$("agenda").addEventListener("click", openJadwal);
+$("agenda").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); openJadwal(); } });
+
+/* ---------- helper bersama: menu titik tiga, tugas <-> jadwal ---------- */
+const fmtShort = d => new Date(d + "T00:00").toLocaleDateString("id-ID", { day:"numeric", month:"short" });
+function kebab(label, fn){
+  const b = document.createElement("button"); b.type = "button"; b.className = "kebab"; b.setAttribute("aria-label", label);
+  b.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>';
+  b.addEventListener("click", e => { e.stopPropagation(); buzz(); fn(); });
+  return b;
+}
+const menuEl = $("menu");
+function openMenu(title, editLabel, delLabel, onEdit, onDel){
+  $("mn-title").textContent = title; $("mn-edit").textContent = editLabel; $("mn-del").textContent = delLabel;
+  $("mn-edit").onclick = () => { closeMenu(); onEdit(); };
+  $("mn-del").onclick = () => { closeMenu(); buzz(); onDel(); };
+  menuEl.classList.add("show");
+}
+function closeMenu(){ menuEl.classList.remove("show"); }
+$("mn-x").addEventListener("click", closeMenu);
+menuEl.addEventListener("click", e => { if (e.target === menuEl) closeMenu(); });
+
+// baris keterangan di kartu jadwal
+function schedLines(it){
+  const o = [];
+  if (it.taskId){
+    o.push(fmtD(it.date) + (it.time ? ", " + it.time.replace(":", ".") : ""));
+  } else if (it.until) o.push("Sampai " + fmtShort(it.until));
+  return o;
+}
+// tugas otomatis masuk jadwal: satu entri "Kerjakan tugas" di hari mengerjakan, satu entri "Deadline" di hari deadline
+function syncTaskSched(t){
+  state.sched.forEach((a, d) => { state.sched[d] = a.filter(it => it.taskId !== t.id); });
+  t.synced = true;
+  if (t.done) return;
+  const put = (kind, date, time, text) => {
+    const d = (new Date(date + "T00:00").getDay() + 6) % 7;
+    state.sched[d].push({ id:t.id + (kind === "dl" ? 1 : 0), taskId:t.id, kind, text, date, until:date, time:time || "" });
+  };
+  if (t.doOn) put("do", t.doOn, t.doTime, 'Kerjakan tugas "' + t.title + '"');
+  if (t.deadline) put("dl", t.deadline, t.time, 'Deadline "' + t.title + '"');
+}
+function refreshSched(){
+  if (tabsEl){ DAYS.forEach((_, d) => updateDot(d)); renderDay(); }
+  renderAgenda();
+}
+function editTask(id){ const t = state.tasks.find(x => x.id === id); if (t) openSheet3(t); else toast("Tugas tidak ditemukan"); }
+
+/* ---------- TUGAS ---------- */
+let tFlt = "act", tPrio = 1;
+const PRIO = ["Rendah", "Sedang", "Tinggi"];
+const fmtD = d => new Date(d + "T00:00").toLocaleDateString("id-ID", { weekday:"long", day:"numeric", month:"short" });
+const dayDiff = d => Math.round((new Date(d + "T00:00") - new Date(today() + "T00:00")) / 864e5);
+const hm = () => { const n = new Date(); return String(n.getHours()).padStart(2, "0") + ":" + String(n.getMinutes()).padStart(2, "0"); };
+
+// label sisa waktu: terlambat / hari ini / besok / N hari lagi
+function dueTag(t){
+  if (!t.deadline) return null;
+  const n = dayDiff(t.deadline);
+  if (n < 0) return { txt:"Terlambat " + (-n) + " hari", cls:"late" };
+  if (n === 0) return t.time && t.time < hm() ? { txt:"Terlambat", cls:"late" } : { txt:"Hari ini", cls:"soon" };
+  if (n === 1) return { txt:"Besok", cls:"soon" };
+  return { txt:n + " hari lagi", cls: n <= 3 ? "soon" : "" };
+}
+const dueKey = t => (t.deadline || "9999-12-31") + " " + (t.time || "99:99");
+
+function renderTasks(){
+  const act = state.tasks.filter(t => !t.done), dn = state.tasks.filter(t => t.done);
+  const late = act.filter(t => { const g = dueTag(t); return g && g.cls === "late"; }).length;
+  $("t-sum").textContent = tFlt === "act" ? (act.length ? act.length + " aktif" + (late ? " · " + late + " terlambat" : "") : "") : (dn.length ? dn.length + " selesai" : "");
+  const rows = tFlt === "act"
+    ? act.sort((a, b) => dueKey(a).localeCompare(dueKey(b)) || b.prio - a.prio || a.id - b.id)
+    : dn.sort((a, b) => b.id - a.id);
+  const ul = $("t-list"); ul.innerHTML = "";
+  if (!rows.length){ ul.innerHTML = '<li class="empty">' + (tFlt === "act" ? "Belum ada tugas." : "Belum ada tugas selesai.") + '</li>'; return; }
+  rows.forEach(t => {
+    const li = document.createElement("li"); li.className = "task" + (t.done ? " done" : "");
+    const chk = document.createElement("button"); chk.type = "button"; chk.className = "chk";
+    chk.setAttribute("aria-label", t.done ? "Tandai belum selesai" : "Tandai selesai");
+    chk.innerHTML = '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+    chk.addEventListener("click", () => { t.done = !t.done; syncTaskSched(t); save(); buzz(); renderTasks(); refreshSched(); toast(t.done ? "Tugas selesai" : "Dikembalikan ke aktif"); });
+    const body = document.createElement("div"); body.className = "body";
+    const b = document.createElement("b"); b.textContent = t.title; body.appendChild(b);
+    if (t.note){ const m = document.createElement("div"); m.className = "meta"; m.textContent = t.note; body.appendChild(m); }
+    if (t.deadline){ const m = document.createElement("div"); m.className = "meta"; m.textContent = "Deadline: " + fmtD(t.deadline) + (t.time ? ", " + t.time.replace(":", ".") : ""); body.appendChild(m); }
+    if (t.doOn){ const m = document.createElement("div"); m.className = "meta"; m.textContent = "Kerjakan: " + fmtD(t.doOn) + (t.doTime ? ", " + t.doTime.replace(":", ".") : ""); body.appendChild(m); }
+    const tags = document.createElement("div"); tags.className = "tags";
+    const g = t.done ? null : dueTag(t);
+    if (g){ const e = document.createElement("span"); e.className = "tag " + g.cls; e.textContent = g.txt; tags.appendChild(e); }
+    if (t.prio === 2 && !t.done){ const e = document.createElement("span"); e.className = "tag late"; e.textContent = "Prioritas tinggi"; tags.appendChild(e); }
+    if (tags.children.length) body.appendChild(tags);
+    const del = kebab("Menu tugas", () => openMenu(t.title, "Edit", "Hapus",
+      () => openSheet3(t),
+      () => { state.tasks = state.tasks.filter(k => k !== t); state.sched.forEach((a, d) => { state.sched[d] = a.filter(it => it.taskId !== t.id); }); save(); renderTasks(); refreshSched(); toast("Tugas dihapus"); }));
+    li.append(chk, body, del); ul.appendChild(li);
+  });
+}
+$("t-filters").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  tFlt = b.dataset.f;
+  $("t-filters").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === b));
+  renderTasks();
+});
+
+const sheet3 = $("sheet3");
+let tEdit = null;
+function openSheet3(t){
+  tEdit = t || null;
+  const v = t || {};
+  $("t-title").value = v.title || ""; $("t-note").value = v.note || "";
+  $("t-dl").value = v.deadline || ""; $("t-tm").value = v.time || ""; $("t-do").value = v.doOn || ""; $("t-dotm").value = v.doTime || "";
+  ["t-dl", "t-tm", "t-do", "t-dotm"].forEach(id => $(id)._upd());
+  tPrio = t ? t.prio : 1;
+  $("sh3-title").textContent = t ? "Edit tugas" : "Tambah tugas";
+  $("t-save").textContent = t ? "Simpan perubahan" : "Simpan tugas";
+  const box = $("t-prio"); box.innerHTML = "";
+  PRIO.forEach((l, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip" + (i === tPrio ? " on" : ""); b.textContent = l;
+    b.addEventListener("click", () => { tPrio = i; [...box.children].forEach((x, n) => x.classList.toggle("on", n === i)); buzz(); });
+    box.appendChild(b);
+  });
+  sheet3.classList.add("show"); if (!t) setTimeout(() => $("t-title").focus(), 350);
+}
+function closeSheet3(){ sheet3.classList.remove("show"); }
+function saveTask(){
+  const title = $("t-title").value.trim(), dl = $("t-dl").value, doOn = $("t-do").value;
+  if (!title){ const f = $("t-title"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); f.focus(); toast("Tulis judul tugas dulu"); return; }
+  if (dl && doOn && (doOn > dl || (doOn === dl && $("t-tm").value && $("t-dotm").value && $("t-dotm").value > $("t-tm").value))){ toast("Waktu mengerjakan melewati deadline"); return; }
+  const data = { title, note:$("t-note").value.trim(), deadline:dl, time:dl ? $("t-tm").value : "", doOn, doTime:doOn ? $("t-dotm").value : "", prio:tPrio };
+  let msg;
+  if (tEdit){ Object.assign(tEdit, data); syncTaskSched(tEdit); msg = "Perubahan disimpan"; }
+  else { const t = { id:Date.now(), ...data, done:false }; state.tasks.push(t); syncTaskSched(t); msg = (doOn || dl) ? "Tugas ditambahkan ke jadwal" : "Tugas ditambahkan"; }
+  tEdit = null; save(); buzz(); closeSheet3();
+  tFlt = "act"; $("t-filters").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x.dataset.f === "act"));
+  renderTasks(); refreshSched(); toast(msg);
+}
+$("fab3").addEventListener("click", () => { buzz(); openSheet3(); });
+$("x3").addEventListener("click", closeSheet3);
+$("t-save").addEventListener("click", saveTask);
+$("t-title").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); saveTask(); } });
+sheet3.addEventListener("click", e => { if (e.target === sheet3) closeSheet3(); });
+
+/* ---------- pemilih tanggal & jam (tampilan sendiri, bukan bawaan HP) ---------- */
+const pk = $("pk"), pad2 = n => String(n).padStart(2, "0");
+let pkKind = "", pkCurrent = "", pkCb = null, pcY = 0, pcM = 0, pH = null, pM = null;
+function closePk(){ pk.classList.remove("show"); }
+function pickDone(v){ if (pkCb) pkCb(v); closePk(); }
+
+function openPicker(kind, val, cb, title){
+  pkKind = kind; pkCb = cb; $("pk-title").textContent = title;
+  if (kind === "date"){
+    const d = val ? new Date(val + "T00:00") : new Date(); pcY = d.getFullYear(); pcM = d.getMonth(); renderCal();
+  } else {
+    renderTime();
+  }
+  $("pk-ok").hidden = kind === "date";
+  pk.classList.add("show");
+  if (kind === "time") setTimeout(() => { const h = $("pk-h"); if (h){ h.focus(); h.select(); } }, 350);
+}
+
+function chipBtn(label, on, fn, box){
+  const b = document.createElement("button"); b.type = "button"; b.className = "chip" + (on ? " on" : ""); b.textContent = label;
+  b.addEventListener("click", fn); box.appendChild(b); return b;
+}
+
+function renderCal(){
+  const body = $("pk-body"); body.innerHTML = "";
+  const cur = pkCurrent;
+  const q = document.createElement("div"); q.className = "qk";
+  [["Hari ini", 0], ["Besok", 1], ["Lusa", 2], ["Minggu depan", 7]].forEach(([l, n]) => {
+    const d = new Date(); d.setDate(d.getDate() + n);
+    chipBtn(l, false, () => { buzz(); pickDone(iso(d)); }, q);
+  });
+  body.appendChild(q);
+  const h = document.createElement("div"); h.className = "cal-h";
+  const prev = document.createElement("button"); prev.type = "button"; prev.className = "cal-nav"; prev.textContent = "‹"; prev.setAttribute("aria-label", "Bulan sebelumnya");
+  const next = document.createElement("button"); next.type = "button"; next.className = "cal-nav"; next.textContent = "›"; next.setAttribute("aria-label", "Bulan berikutnya");
+  const t = document.createElement("b"); t.textContent = new Date(pcY, pcM, 1).toLocaleDateString("id-ID", { month:"long", year:"numeric" });
+  prev.addEventListener("click", () => { pcM--; if (pcM < 0){ pcM = 11; pcY--; } renderCal(); });
+  next.addEventListener("click", () => { pcM++; if (pcM > 11){ pcM = 0; pcY++; } renderCal(); });
+  h.append(prev, t, next); body.appendChild(h);
+  const g = document.createElement("div"); g.className = "cal";
+  ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].forEach(w => { const e = document.createElement("div"); e.className = "wd"; e.textContent = w; g.appendChild(e); });
+  const off = (new Date(pcY, pcM, 1).getDay() + 6) % 7, days = new Date(pcY, pcM + 1, 0).getDate(), td = today();
+  for (let i = 0; i < off; i++) g.appendChild(document.createElement("span"));
+  for (let d = 1; d <= days; d++){
+    const key = iso(new Date(pcY, pcM, d));
+    const b = document.createElement("button"); b.type = "button"; b.textContent = d;
+    if (key === td) b.classList.add("today");
+    if (key === cur) b.classList.add("on");
+    b.addEventListener("click", () => { buzz(); pickDone(key); });
+    g.appendChild(b);
+  }
+  body.appendChild(g);
+}
+
+function renderTime(){
+  const body = $("pk-body"); body.innerHTML = "";
+  const [h0, m0] = pkCurrent ? pkCurrent.split(":") : ["", ""];
+  const mk = (id, v, ph) => {
+    const i = document.createElement("input"); i.id = id; i.className = "tin"; i.type = "text"; i.inputMode = "numeric";
+    i.maxLength = 2; i.autocomplete = "off"; i.placeholder = ph; i.value = v; i.setAttribute("aria-label", ph === "JJ" ? "Jam" : "Menit"); return i;
+  };
+  const hi = mk("pk-h", h0, "JJ"), mi = mk("pk-m", m0, "MM");
+  const sep = document.createElement("span"); sep.className = "tsep"; sep.textContent = ":";
+  const wrap = document.createElement("div"); wrap.className = "tbox"; wrap.append(hi, sep, mi); body.appendChild(wrap);
+  // jam: 2 angka selesai -> langsung pindah ke menit
+  hi.addEventListener("input", () => {
+    let v = hi.value.replace(/\D/g, "").slice(0, 2);
+    if (v.length === 1 && +v > 2) v = "0" + v;
+    if (v.length === 2 && +v > 23) v = "23";
+    hi.value = v;
+    if (v.length === 2){ mi.focus(); mi.select(); }
+  });
+  mi.addEventListener("input", () => {
+    let v = mi.value.replace(/\D/g, "").slice(0, 2);
+    if (v.length === 1 && +v > 5) v = "0" + v;
+    if (v.length === 2 && +v > 59) v = "59";
+    mi.value = v;
+    if (v.length === 2) mi.blur();
+  });
+  hi.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); mi.focus(); mi.select(); } });
+  mi.addEventListener("keydown", e => {
+    if (e.key === "Backspace" && !mi.value){ hi.focus(); }
+    if (e.key === "Enter"){ e.preventDefault(); $("pk-ok").click(); }
+  });
+  [hi, mi].forEach(el => el.addEventListener("focus", () => el.select()));
+}
+
+$("pk-ok").addEventListener("click", () => {
+  const h = $("pk-h"), m = $("pk-m");
+  if (!h || !h.value){ toast("Isi jam dulu"); if (h) h.focus(); return; }
+  pickDone(pad2(+h.value) + ":" + pad2(+(m.value || 0)));
+});
+$("pk-clear").addEventListener("click", () => pickDone(""));
+$("pk-x").addEventListener("click", closePk);
+pk.addEventListener("click", e => { if (e.target === pk) closePk(); });
+
+// tombol field: tampilkan nilai / placeholder, buka pemilih saat diketuk
+function bindField(btn, input, kind, ph, title){
+  const upd = () => {
+    const v = input.value;
+    btn.querySelector("span").textContent = v ? (kind === "date" ? fmtD(v) : v.replace(":", ".")) : ph;
+    btn.classList.toggle("has", !!v);
+  };
+  btn.addEventListener("click", () => {
+    buzz(); pkCurrent = input.value;
+    openPicker(kind, input.value, v => { input.value = v; upd(); }, title);
+  });
+  input._upd = upd; upd();
+}
+bindField($("t-dl-b"), $("t-dl"), "date", "Pilih tanggal", "Deadline");
+bindField($("t-tm-b"), $("t-tm"), "time", "Pilih jam", "Jam deadline");
+bindField($("t-do-b"), $("t-do"), "date", "Pilih tanggal", "Kerjakan pada");
+bindField($("t-dotm-b"), $("t-dotm"), "time", "Pilih jam", "Jam mengerjakan");
+bindField($("f-date-b"), $("f-date"), "date", "Pilih tanggal", "Tanggal transaksi");
 
 /* ---------- mulai ---------- */
 load();
-$("f-date").value = today();
-fillCats(); renderAll(); renderWeek(); initMedia();
+$("f-date").value = today(); $("f-date")._upd();
+state.tasks.forEach(t => { if (!t.synced || state.schedV !== 2) syncTaskSched(t); }); state.schedV = 2; save();
+fillCats(); renderAll(); renderWeek(); renderAgenda(); renderTasks(); initMedia();
 </script>
 </body>
 </html>
