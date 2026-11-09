@@ -430,6 +430,12 @@ textarea::placeholder{color:var(--muted)}
 .aiprev button{border:0;background:none;color:var(--ink);font-size:1.1rem;width:34px;height:34px;cursor:pointer}
 #aim .m.u img{display:block;max-width:100%;max-height:200px;border-radius:12px;margin-bottom:6px}
 #aiF{margin-top:0}
+/* tabungan */
+.sv{margin-top:14px;padding-top:14px;border-top:1px solid var(--edge)}
+.sv:first-child{margin-top:0;padding-top:0;border-top:0}
+.sv .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.bar i.done{background:var(--in)}
+.chip.tg.on{background:var(--accent);color:#fff}
 </style>
 </head>
 <body>
@@ -493,6 +499,11 @@ textarea::placeholder{color:var(--muted)}
     <div class="mini">
       <div class="card glass rise"><div class="muted">Masuk bulan ini</div><div class="v in" id="m-in">Rp0</div></div>
       <div class="card glass rise"><div class="muted">Keluar bulan ini</div><div class="v out" id="m-out">Rp0</div></div>
+    </div>
+
+    <div class="card glass rise" id="sav-card">
+      <div class="row"><div><h2>Tabungan</h2><div class="muted" id="sav-sum"></div></div><button class="btn sm" id="sav-add" type="button">+ Target</button></div>
+      <div id="sav-list" style="margin-top:12px"></div>
     </div>
 
     <div class="card glass rise">
@@ -572,6 +583,26 @@ textarea::placeholder{color:var(--muted)}
       <label>Catatan<input id="f-note" type="text" maxlength="60" placeholder="Opsional"></label>
       <div style="min-width:0"><div class="lbl">Tanggal</div><button class="field" id="f-date-b" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span></span></button><input id="f-date" type="hidden"></div>
       <button class="btn pri full" id="save" type="button">Simpan transaksi</button>
+    </div>
+  </div>
+</div>
+
+<!-- lembar tabungan -->
+<div class="sheet" id="sheetS">
+  <div class="glass blur">
+    <div class="grab"></div>
+    <div class="row" style="margin-bottom:16px"><h2 id="sv-title">Target tabungan</h2><button class="btn sm" id="sv-x" type="button">Tutup</button></div>
+    <div class="fgrid" style="margin-top:0">
+      <div class="seg acc full" id="sv-seg" role="group" aria-label="Setor atau tarik">
+        <span class="thumb"></span>
+        <button type="button" data-d="dep" class="on">Setor</button>
+        <button type="button" data-d="wd">Tarik</button>
+      </div>
+      <label class="full" id="sv-nl">Nama<input id="sv-name" type="text" maxlength="40" autocomplete="off" placeholder="Mis. Laptop"></label>
+      <label class="full" id="sv-tl">Target<input id="sv-target" type="text" inputmode="numeric" autocomplete="off" placeholder="Rp, opsional"></label>
+      <label class="full"><span id="sv-al">Jumlah</span><div class="amt"><span>Rp</span><input id="sv-amt" type="text" inputmode="numeric" autocomplete="off" placeholder="0"></div></label>
+      <div class="full"><button class="chip tg" id="sv-link" type="button">Ikut saldo</button></div>
+      <button class="btn pri full" id="sv-save" type="button">Simpan</button>
     </div>
   </div>
 </div>
@@ -685,7 +716,7 @@ let kind = "out", cat = "", flt = "all", lastId = null;
 // status sinkronisasi Supabase (dideklarasikan di awal karena save() dipanggil saat startup)
 let sb = null, uid = null, ready = false, dirty = false, pushing = false, failed = false, pushTimer = null, lastSeen = null, chan = null, pullTimer = null;
 // penyimpanan dibungkus try/catch; kalau diblokir, data tetap hidup di memori
-function load(){ try{ const s = JSON.parse(localStorage.getItem("zaims-manager-v1")); if(s && s.tx) state = s; }catch(e){} delete state.tables; if (!Array.isArray(state.tasks)) state.tasks = []; if (!Array.isArray(state.media)) state.media = []; if (!Array.isArray(state.sched) || state.sched.length !== 7) state.sched = [[],[],[],[],[],[],[]]; }
+function load(){ try{ const s = JSON.parse(localStorage.getItem("zaims-manager-v1")); if(s && s.tx) state = s; }catch(e){} delete state.tables; if (!Array.isArray(state.tasks)) state.tasks = []; if (!Array.isArray(state.media)) state.media = []; if (!Array.isArray(state.savings)) state.savings = []; if (!Array.isArray(state.sched) || state.sched.length !== 7) state.sched = [[],[],[],[],[],[],[]]; }
 function save(){ try{ localStorage.setItem("zaims-manager-v1", JSON.stringify(state)); }catch(e){} queuePush(); }
 
 const $ = id => document.getElementById(id);
@@ -786,7 +817,7 @@ function renderList(){
   });
   lastId = null;
 }
-function renderAll(){ renderHome(); renderCats(); renderList(); }
+function renderAll(){ renderHome(); renderCats(); renderList(); renderSav(); }
 
 /* ---------- input ---------- */
 // format ribuan otomatis saat mengetik
@@ -841,6 +872,84 @@ $("fab").addEventListener("click", () => { buzz(); openSheet(); });
 $("x").addEventListener("click", closeSheet);
 sheet.addEventListener("click", e => { if (e.target === sheet) closeSheet(); });
 addEventListener("keydown", e => { if (e.key === "Escape"){ closeSheet(); closeSheet2(); closeSheet3(); closePk(); closeMenu(); } });
+
+/* ---------- TABUNGAN ---------- */
+function savs(){ if (!Array.isArray(state.savings)) state.savings = []; return state.savings; }
+function renderSav(){
+  const box = $("sav-list"); if (!box) return;
+  const list = savs(), tot = list.reduce((s, g) => s + g.saved, 0);
+  $("sav-sum").textContent = list.length ? "Total " + rp(tot) : "";
+  box.innerHTML = "";
+  if (!list.length){ box.innerHTML = '<div class="empty">Belum ada tabungan.</div>'; return; }
+  list.forEach(g => {
+    const d = document.createElement("div"); d.className = "sv";
+    const r = document.createElement("div"); r.className = "row";
+    const a = document.createElement("b"); a.textContent = g.name;
+    const b = document.createElement("span"); b.className = "muted";
+    const pct = g.target ? Math.min(100, Math.floor(g.saved / g.target * 100)) : 0;
+    b.textContent = rp(g.saved) + (g.target ? " / " + rp(g.target) + " · " + pct + "%" : "");
+    r.append(a, b); d.appendChild(r);
+    if (g.target){
+      const bar = document.createElement("div"); bar.className = "bar";
+      const i = document.createElement("i"); if (g.saved >= g.target) i.classList.add("done");
+      bar.appendChild(i); d.appendChild(bar); grow(i, Math.min(1, g.saved / g.target));
+    }
+    const acts = document.createElement("div"); acts.className = "acts";
+    const mk = (txt, fn, cls) => { const x = document.createElement("button"); x.type = "button"; x.className = "btn sm" + (cls ? " " + cls : ""); x.textContent = txt; x.addEventListener("click", () => fn(x)); acts.appendChild(x); };
+    mk("Setor", () => openSav("dep", g.id));
+    mk("Tarik", () => openSav("wd", g.id));
+    mk("Hapus", x => {
+      if (!x.classList.contains("armed")){ x.classList.add("armed"); x.textContent = "Yakin?"; setTimeout(() => { x.classList.remove("armed"); x.textContent = "Hapus"; }, 2500); return; }
+      state.savings = savs().filter(z => z.id !== g.id); save(); buzz(); renderSav(); toast("Tabungan dihapus");
+    }, "danger");
+    d.appendChild(acts); box.appendChild(d);
+  });
+}
+let svMode = "new", svId = null, svLink = false;
+const svSheet = $("sheetS");
+const svShow = (id, on) => { $(id).style.display = on ? "" : "none"; };
+function svSetDir(dir){
+  svMode = dir; $("sv-seg").classList.toggle("is-in", dir === "wd");
+  $("sv-seg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x.dataset.d === dir));
+}
+function openSav(mode, id){
+  svId = id || null; svLink = false; $("sv-link").classList.remove("on");
+  ["sv-name", "sv-target", "sv-amt"].forEach(k => $(k).value = "");
+  const isNew = mode === "new", g = savs().find(z => z.id === id);
+  svShow("sv-seg", !isNew); svShow("sv-nl", isNew); svShow("sv-tl", isNew);
+  $("sv-title").textContent = isNew ? "Target tabungan" : g ? g.name : "Tabungan";
+  $("sv-al").textContent = isNew ? "Setoran awal" : "Jumlah";
+  svSetDir(isNew ? "new" : mode);
+  buzz(); svSheet.classList.add("show");
+}
+function closeSav(){ svSheet.classList.remove("show"); }
+function svShake(id){ const f = $(id); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); }
+function saveSav(){
+  const amt = num($("sv-amt")), list = savs();
+  const note = (verb, name) => ({ id:Date.now() + 1, type:verb === "Setor" ? "out" : "in", amt, cat:"Tabungan", note:verb + " " + name, date:today() });
+  if (svMode === "new"){
+    const name = $("sv-name").value.trim();
+    if (!name){ svShake("sv-name"); toast("Isi nama dulu"); return; }
+    list.push({ id:Date.now(), name, target:num($("sv-target")), saved:amt });
+    if (amt && svLink) state.tx.push(note("Setor", name));
+  } else {
+    const g = list.find(z => z.id === svId); if (!g) return closeSav();
+    if (!amt){ svShake("sv-amt"); toast("Isi jumlah dulu"); return; }
+    if (svMode === "wd" && amt > g.saved){ svShake("sv-amt"); toast("Melebihi tabungan"); return; }
+    g.saved += svMode === "dep" ? amt : -amt;
+    if (svLink) state.tx.push(note(svMode === "dep" ? "Setor" : "Tarik", g.name));
+  }
+  save(); buzz(); closeSav(); renderAll(); toast("Tabungan disimpan");
+}
+money($("sv-amt")); money($("sv-target"));
+$("sav-add").addEventListener("click", () => openSav("new"));
+$("sv-x").addEventListener("click", closeSav);
+$("sv-save").addEventListener("click", saveSav);
+$("sv-link").addEventListener("click", () => { svLink = !svLink; $("sv-link").classList.toggle("on", svLink); buzz(); });
+$("sv-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (b && svMode !== "new"){ svSetDir(b.dataset.d); buzz(); } });
+svSheet.addEventListener("click", e => { if (e.target === svSheet) closeSav(); });
+addEventListener("keydown", e => { if (e.key === "Escape") closeSav(); });
+["sv-name", "sv-amt"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") saveSav(); }));
 
 /* ekspor CSV */
 $("csv").addEventListener("click", () => {
@@ -1657,7 +1766,7 @@ let auMode = "in";
 
 const sameTime = (a, b) => a && b && new Date(a).getTime() === new Date(b).getTime();
 function setSync(){}   // status sinkron tidak ditampilkan
-function emptyState(){ return { tx:[], sched:[[],[],[],[],[],[],[]], tasks:[], media:[] }; }
+function emptyState(){ return { tx:[], sched:[[],[],[],[],[],[],[]], tasks:[], media:[], savings:[] }; }
 
 function applyRemote(d){
   state = (d && typeof d === "object") ? d : emptyState();
@@ -1665,6 +1774,7 @@ function applyRemote(d){
   delete state.tables;
   if (!Array.isArray(state.tasks)) state.tasks = [];
   if (!Array.isArray(state.media)) state.media = [];
+  if (!Array.isArray(state.savings)) state.savings = [];
   if (!Array.isArray(state.sched) || state.sched.length !== 7) state.sched = [[],[],[],[],[],[],[]];
   state.tasks.forEach(t => { if (!t.synced || state.schedV !== 2) syncTaskSched(t); }); state.schedV = 2;
   try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
@@ -1814,10 +1924,10 @@ function mgAi(){
 }
 
 /* ----- Asisten AI (data Manager) ----- */
-const AI_MODELS=['gemini-2.5-flash','gemini-flash-lite-latest','gemini-flash-latest'],AI_KEY='zn_gkey';
+const AI_MODELS=['gemini-2.5-flash','gemini-flash-lite-latest','gemini-flash-latest'],AI_KEY='zn_gkey',AI_DEF='AQ.Ab8RN6JgUAC8wEYffvw1LXYovHuRcaP0Uz_PFbb0J0bqehLydA';
 const AI={msgs:[],busy:false,dots:null,model:''};
 let aiMem='';
-const aiKey=()=>{try{return localStorage.getItem(AI_KEY)||aiMem}catch(e){return aiMem}};
+const aiKey=()=>{try{return localStorage.getItem(AI_KEY)||aiMem||AI_DEF}catch(e){return aiMem||AI_DEF}};
 const AI_TOOLS=[{functionDeclarations:[
  {name:'add_tx',description:'Catat SATU transaksi uang (pemasukan atau pengeluaran) dari perintah teks. Bukan untuk jadwal atau tugas',parameters:{type:'OBJECT',properties:{jenis:{type:'STRING',enum:['masuk','keluar']},jumlah:{type:'NUMBER',description:'Rupiah utuh, tanpa titik'},kategori:{type:'STRING',description:'Bebas. Contoh: Makan, Transport, Belanja, Tagihan, Hiburan, Kesehatan, Gaji, Bonus, Hadiah, Lainnya'},catatan:{type:'STRING'},tanggal:{type:'STRING',description:'YYYY-MM-DD, kosong = hari ini'}},required:['jenis','jumlah']}},
  {name:'add_tx_banyak',description:'Catat satu atau banyak transaksi sekaligus dari GAMBAR (struk, screenshot riwayat belanja, mutasi, bukti transfer). Otomatis melewati transaksi yang sudah tercatat (tanggal, jenis, jumlah, catatan sama)',parameters:{type:'OBJECT',properties:{items:{type:'ARRAY',items:{type:'OBJECT',properties:{jenis:{type:'STRING',enum:['masuk','keluar']},jumlah:{type:'NUMBER',description:'Rupiah utuh, tanpa titik'},kategori:{type:'STRING'},catatan:{type:'STRING',description:'Nama toko + item utama, ringkas'},tanggal:{type:'STRING',description:'YYYY-MM-DD, kosong = hari ini'}},required:['jenis','jumlah']}}},required:['items']}},
