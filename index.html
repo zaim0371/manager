@@ -602,7 +602,7 @@ textarea::placeholder{color:var(--muted)}
       <label class="full" id="sv-nl">Nama<input id="sv-name" type="text" maxlength="40" autocomplete="off" placeholder="Mis. Laptop"></label>
       <label class="full" id="sv-tl">Target<input id="sv-target" type="text" inputmode="numeric" autocomplete="off" placeholder="Rp, opsional"></label>
       <label class="full"><span id="sv-al">Jumlah</span><div class="amt"><span>Rp</span><input id="sv-amt" type="text" inputmode="numeric" autocomplete="off" placeholder="0"></div></label>
-      <div class="full"><button class="chip tg" id="sv-link" type="button">Ikut saldo</button></div>
+      <div class="full"><button class="chip tg" id="sv-link" type="button">Potong / tambah saldo utama</button></div>
       <button class="btn pri full" id="sv-save" type="button">Simpan</button>
     </div>
   </div>
@@ -901,7 +901,7 @@ function renderSav(){
     mk("Tarik", () => openSav("wd", g.id));
     mk("Hapus", x => {
       if (!x.classList.contains("armed")){ x.classList.add("armed"); x.textContent = "Yakin?"; setTimeout(() => { x.classList.remove("armed"); x.textContent = "Hapus"; }, 2500); return; }
-      state.savings = savs().filter(z => z.id !== g.id); save(); buzz(); renderSav(); toast("Tabungan dihapus");
+      state.savings = savs().filter(z => z.id !== g.id); save(); flushNow(); buzz(); renderSav(); toast("Tabungan dihapus");
     }, "danger");
     d.appendChild(acts); box.appendChild(d);
   });
@@ -914,7 +914,7 @@ function svSetDir(dir){
   $("sv-seg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x.dataset.d === dir));
 }
 function openSav(mode, id){
-  svId = id || null; svLink = false; $("sv-link").classList.remove("on");
+  svId = id || null; svLink = true; $("sv-link").classList.add("on");   // default: ikut saldo utama
   ["sv-name", "sv-target", "sv-amt"].forEach(k => $(k).value = "");
   const isNew = mode === "new", g = savs().find(z => z.id === id);
   svShow("sv-seg", !isNew); svShow("sv-nl", isNew); svShow("sv-tl", isNew);
@@ -933,20 +933,24 @@ function svMatch(a){
   const ex=L.filter(z=>String(z.name).toLowerCase()===n);if(ex.length)return ex;
   return L.filter(z=>{const t=String(z.name).toLowerCase();return t.includes(n)||n.includes(t)});
 }
-function svLog(g,kind,amt,dt){
+const svBal=()=>sum(state.tx,"in")-sum(state.tx,"out");   // saldo utama
+function svTx(type,amt,note,dt){const id=svUid();state.tx.push({id,type,amt,cat:"Tabungan",note,date:dt||today()});return id}
+function svLog(g,kind,amt,dt,tid){
   if(!Array.isArray(g.hist))g.hist=[];
-  g.hist.push({d:dt||today(),k:kind,a:amt});
+  const e={d:dt||today(),k:kind,a:amt};if(tid)e.t=tid;   // t = id transaksi keuangan yang tertaut
+  g.hist.push(e);
   if(g.hist.length>200)g.hist=g.hist.slice(-200);
 }
 function svMove(g,mode,amt,link,dt){
-  g.saved=(Number(g.saved)||0)+(mode==="dep"?amt:-amt);svLog(g,mode,amt,dt);
-  if(link)state.tx.push({id:svUid(),type:mode==="dep"?"out":"in",amt,cat:"Tabungan",note:(mode==="dep"?"Setor ":"Tarik ")+g.name,date:dt||today()});
+  g.saved=(Number(g.saved)||0)+(mode==="dep"?amt:-amt);
+  const tid=link?svTx(mode==="dep"?"out":"in",amt,(mode==="dep"?"Setor ":"Tarik ")+g.name,dt):0;   // setor = potong saldo utama, tarik = tambah saldo utama
+  svLog(g,mode,amt,dt,tid);
 }
 function svCreate(name,target,amt,link,dt){
   const g={id:svUid(),name,target:target||0,saved:amt||0,hist:[]};
-  if(amt)svLog(g,"init",amt,dt);
+  const tid=(amt&&link)?svTx("out",amt,"Setor "+name,dt):0;
+  if(amt)svLog(g,"init",amt,dt,tid);
   savs().push(g);
-  if(amt&&link)state.tx.push({id:svUid(),type:"out",amt,cat:"Tabungan",note:"Setor "+name,date:dt||today()});
   return g;
 }
 function saveSav(){
@@ -954,14 +958,16 @@ function saveSav(){
   if (svMode === "new"){
     const name = $("sv-name").value.trim();
     if (!name){ svShake("sv-name"); toast("Isi nama dulu"); return; }
+    if (svLink && amt > svBal()){ svShake("sv-amt"); toast("Saldo utama kurang (" + rp(svBal()) + ")"); return; }
     svCreate(name, num($("sv-target")), amt, svLink);
   } else {
     const g = savs().find(z => z.id === svId); if (!g) return closeSav();
     if (!amt){ svShake("sv-amt"); toast("Isi jumlah dulu"); return; }
     if (svMode === "wd" && amt > g.saved){ svShake("sv-amt"); toast("Melebihi tabungan"); return; }
+    if (svLink && svMode === "dep" && amt > svBal()){ svShake("sv-amt"); toast("Saldo utama kurang (" + rp(svBal()) + ")"); return; }
     svMove(g, svMode, amt, svLink);
   }
-  save(); buzz(); closeSav(); renderAll(); toast("Tabungan disimpan");
+  save(); flushNow(); buzz(); closeSav(); renderAll(); toast("Tabungan disimpan");
 }
 money($("sv-amt")); money($("sv-target"));
 $("sav-add").addEventListener("click", () => openSav("new"));
@@ -1784,7 +1790,19 @@ const SB_URL = "https://ypdtaoccfxzquyfsiloy.supabase.co";
 const SB_KEY = "sb_publishable_2crOjnp8Rf4zhCt2bdO_Ug_rH4enKGH";   // kunci publik; aman di sisi browser
 const LS_KEY = "zaims-manager-v1", OWNER_KEY = "zaims-owner";
 const authEl = $("auth"), auMsg = $("au-msg");
-let auMode = "in";
+let auMode = "in", accessToken = "";
+function flushNow(){ if (!sb || !uid || !ready) return; clearTimeout(pushTimer); dirty = true; flush(); }
+function flushBeacon(){   // dipanggil saat tab ditutup / disembunyikan: kirim dengan keepalive supaya tidak hilang
+  if (!dirty || !sb || !uid || !ready || !accessToken) return;
+  try{
+    const body = JSON.stringify({ user_id:uid, data:state, updated_at:new Date().toISOString() });
+    if (body.length > 60000) return;
+    fetch(SB_URL + "/rest/v1/manager_state?on_conflict=user_id", { method:"POST", keepalive:true, body,
+      headers:{ apikey:SB_KEY, Authorization:"Bearer " + accessToken, "Content-Type":"application/json", Prefer:"resolution=merge-duplicates,return=minimal" } });
+  }catch(e){}
+}
+addEventListener("pagehide", flushBeacon);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden"){ flushBeacon(); flushNow(); } });
 
 const sameTime = (a, b) => a && b && new Date(a).getTime() === new Date(b).getTime();
 function setSync(){}   // status sinkron tidak ditampilkan
@@ -1854,7 +1872,7 @@ function subscribe(){
 }
 
 async function startSession(session){
-  uid = session.user.id; ready = false;
+  uid = session.user.id; ready = false; accessToken = session.access_token || "";
   const owner = localStorage.getItem(OWNER_KEY);
   if (owner && owner !== uid){ state = emptyState(); try{ localStorage.removeItem(LS_KEY); }catch(e){} await wipeMedia(); renderAll(); renderWeek(); renderAgenda(); renderTasks(); }
   try{ localStorage.setItem(OWNER_KEY, uid); }catch(e){}
@@ -1971,9 +1989,9 @@ const AI_TOOLS=[{functionDeclarations:[
  {name:'delete_task',description:'Hapus satu atau banyak tugas berdasarkan id',parameters:{type:'OBJECT',properties:{ids:{type:'ARRAY',items:{type:'STRING'}}},required:['ids']}},
  {name:'delete_media',description:'Hapus file (gambar atau PDF) di galeri jadwal berdasarkan id',parameters:{type:'OBJECT',properties:{ids:{type:'ARRAY',items:{type:'STRING'}}},required:['ids']}},
  {name:'reset_data',description:'Kosongkan seluruh data satu bagian',parameters:{type:'OBJECT',properties:{cakupan:{type:'STRING',enum:['keuangan','tabungan','jadwal','tugas','file','semua']}},required:['cakupan']}},
- {name:'add_savings',description:'Buat TARGET TABUNGAN baru (celengan). Untuk kata tabungan, nabung, celengan, target tabungan. Bukan transaksi biasa',parameters:{type:'OBJECT',properties:{nama:{type:'STRING'},target:{type:'NUMBER',description:'Rupiah utuh, opsional'},setoran_awal:{type:'NUMBER',description:'Rupiah utuh, opsional'},catat_keuangan:{type:'BOOLEAN',description:'true HANYA jika user minta uangnya dipotong dari saldo / dicatat di keuangan'}},required:['nama']}},
- {name:'deposit_savings',description:'SETOR / nabung ke tabungan yang sudah ada (tambah saldo tabungan). Pilih tabungan lewat id atau nama',parameters:{type:'OBJECT',properties:{id:{type:'STRING'},nama:{type:'STRING'},jumlah:{type:'NUMBER',description:'Rupiah utuh'},catat_keuangan:{type:'BOOLEAN',description:'true HANYA jika user minta dipotong dari saldo / dicatat di keuangan'}},required:['jumlah']}},
- {name:'withdraw_savings',description:'TARIK uang dari tabungan (kurangi saldo tabungan). Pilih tabungan lewat id atau nama',parameters:{type:'OBJECT',properties:{id:{type:'STRING'},nama:{type:'STRING'},jumlah:{type:'NUMBER',description:'Rupiah utuh'},catat_keuangan:{type:'BOOLEAN',description:'true HANYA jika user minta dimasukkan ke saldo / dicatat di keuangan'}},required:['jumlah']}},
+ {name:'add_savings',description:'Buat TARGET TABUNGAN baru (celengan). Untuk kata tabungan, nabung, celengan, target tabungan. Bukan transaksi biasa',parameters:{type:'OBJECT',properties:{nama:{type:'STRING'},target:{type:'NUMBER',description:'Rupiah utuh, opsional'},setoran_awal:{type:'NUMBER',description:'Rupiah utuh, opsional'},catat_keuangan:{type:'BOOLEAN',description:'DEFAULT true: setor memotong saldo utama, tarik menambah saldo utama. Isi false HANYA jika user bilang tanpa potong saldo / jangan dicatat di keuangan'}},required:['nama']}},
+ {name:'deposit_savings',description:'SETOR / nabung ke tabungan yang sudah ada (tambah saldo tabungan). Pilih tabungan lewat id atau nama',parameters:{type:'OBJECT',properties:{id:{type:'STRING'},nama:{type:'STRING'},jumlah:{type:'NUMBER',description:'Rupiah utuh'},catat_keuangan:{type:'BOOLEAN',description:'DEFAULT true: setor memotong saldo utama, tarik menambah saldo utama. Isi false HANYA jika user bilang tanpa potong saldo / jangan dicatat di keuangan'}},required:['jumlah']}},
+ {name:'withdraw_savings',description:'TARIK uang dari tabungan (kurangi saldo tabungan). Pilih tabungan lewat id atau nama',parameters:{type:'OBJECT',properties:{id:{type:'STRING'},nama:{type:'STRING'},jumlah:{type:'NUMBER',description:'Rupiah utuh'},catat_keuangan:{type:'BOOLEAN',description:'DEFAULT true: setor memotong saldo utama, tarik menambah saldo utama. Isi false HANYA jika user bilang tanpa potong saldo / jangan dicatat di keuangan'}},required:['jumlah']}},
  {name:'edit_savings',description:'Ubah nama atau target tabungan. target 0 = hapus target',parameters:{type:'OBJECT',properties:{id:{type:'STRING'},nama:{type:'STRING',description:'nama tabungan yang diubah (jika tanpa id)'},nama_baru:{type:'STRING'},target:{type:'NUMBER'}}}},
  {name:'delete_savings',description:'Hapus satu atau banyak tabungan (beserta riwayatnya). Hanya jika user jelas memintanya',parameters:{type:'OBJECT',properties:{ids:{type:'ARRAY',items:{type:'STRING'}},nama:{type:'STRING'}}}},
  {name:'set_theme',description:'Ganti tema tampilan app',parameters:{type:'OBJECT',properties:{mode:{type:'STRING',enum:['terang','gelap']}},required:['mode']}},
@@ -1991,7 +2009,7 @@ const svEff=h=>h.k==='wd'?-(Number(h.a)||0):(Number(h.a)||0);   // dep, init = t
    {name:'set_savings_balance',description:'KOREKSI saldo satu tabungan langsung ke angka tertentu (tercatat sebagai koreksi saldo di riwayat)',parameters:{type:'OBJECT',properties:{...SID,saldo:{type:'NUMBER',description:'Saldo baru, rupiah utuh'},tanggal:{type:'STRING'}},required:['saldo']}},
    {name:'transfer_savings',description:'PINDAHKAN uang dari satu tabungan ke tabungan lain',parameters:{type:'OBJECT',properties:{dari:{type:'STRING',description:'nama tabungan asal'},dari_id:{type:'STRING'},ke:{type:'STRING',description:'nama tabungan tujuan'},ke_id:{type:'STRING'},jumlah:{type:'NUMBER'},tanggal:{type:'STRING'}},required:['jumlah']}},
    {name:'edit_savings_entry',description:'Ubah jumlah atau tanggal satu entri riwayat tabungan (no dari riwayat). Saldo tabungan ikut dihitung ulang',parameters:{type:'OBJECT',properties:{...SID,no:{type:'INTEGER'},jumlah:{type:'NUMBER'},tanggal:{type:'STRING'}},required:['no']}},
-   {name:'delete_savings_entry',description:'Hapus satu entri riwayat tabungan (no dari riwayat). Efeknya ke saldo dibatalkan. hapus_transaksi_terkait=true juga menghapus transaksi keuangannya',parameters:{type:'OBJECT',properties:{...SID,no:{type:'INTEGER'},hapus_transaksi_terkait:{type:'BOOLEAN'}},required:['no']}}
+   {name:'delete_savings_entry',description:'Hapus satu entri riwayat tabungan (no dari riwayat). Efeknya ke saldo tabungan dibatalkan; transaksi saldo utama yang tertaut ikut dihapus (default) kecuali hapus_transaksi_terkait=false',parameters:{type:'OBJECT',properties:{...SID,no:{type:'INTEGER'},hapus_transaksi_terkait:{type:'BOOLEAN'}},required:['no']}}
   );
 })();
 function aiData(){
@@ -2017,7 +2035,7 @@ LANGKAH 1 - TENTUKAN JENIS DATA (sebelum memilih tool)
 - JADWAL → add_schedule. Pemicu: kata jadwal, kegiatan, acara, agenda, atau sesuatu yang TERJADI pada hari/jam tertentu: ujian, kuliah, kelas, rapat, meeting, janji, les, latihan, olahraga, ibadah, sidang, wawancara, tes, pertandingan, ulang tahun, shift kerja.
 - TUGAS → add_task. Pemicu: kata tugas, PR, to do, deadline, kumpulkan, kerjakan, selesaikan, revisi, atau pekerjaan yang bisa ditandai selesai.
 - KEUANGAN → add_tx atau add_tx_banyak. Pemicu: beli, bayar, jajan, gaji, transfer, tagihan, nominal (Rp, rb, k, jt).
-- TABUNGAN → add_savings, deposit_savings, withdraw_savings, transfer_savings, set_savings_balance, edit_savings, delete_savings, get_savings_history, edit_savings_entry, delete_savings_entry. Kamu punya AKSES PENUH ke tabungan: lihat, buat, setor, tarik, pindah antar tabungan, koreksi saldo, ubah nama/target, ubah atau hapus riwayat, hapus tabungan. Pemicu: tabung, nabung, tabungan, celengan, setor ke, tarik dari tabungan, target tabungan. JANGAN pakai add_tx untuk ini.
+- TABUNGAN → add_savings, deposit_savings, withdraw_savings, transfer_savings, set_savings_balance, edit_savings, delete_savings, get_savings_history, edit_savings_entry, delete_savings_entry. Kamu punya AKSES PENUH ke tabungan: lihat, buat, setor, tarik, pindah antar tabungan, koreksi saldo, ubah nama/target, ubah atau hapus riwayat, hapus tabungan. Pemicu: tabung, nabung, tabungan, kantong, celengan, setor ke, tarik dari tabungan, target tabungan. JANGAN pakai add_tx untuk ini.
 - Kata "jadwal" TIDAK PERNAH menjadi tugas. "Tambahin jadwal hari Rabu kegiatan ujian" = add_schedule teks "Ujian" di hari Rabu. BUKAN add_task. Hanya "belajar untuk ujian", "PR", atau "tugas" yang menjadi tugas.
 - Satu pesan bisa berisi beberapa hal, mis. "jadwal ujian rabu, dan tugas matematika deadline jumat": kerjakan keduanya dengan tool masing-masing.
 
@@ -2045,7 +2063,12 @@ TABUNGAN
 - Daftar tabungan ada di data (tabungan, total_tabungan: id, nama, terkumpul, target, persen, kurang, riwayat_terakhir). Pertanyaan seperti "berapa tabungan laptop", "sisa target liburan", "total tabungan", "kapan terakhir nabung" jawab langsung dari data, tanpa tool.
 - "Nabung 50rb ke Laptop" atau "setor 50rb buat Laptop" = deposit_savings. "Tarik 20rb dari Laptop" = withdraw_savings. "Buat tabungan Liburan target 5jt" = add_savings. Nama tabungan cukup mirip, tidak harus persis sama.
 - Tabungan yang disebut belum ada dan user jelas mau menabung ke situ (mis. "nabung 100rb buat Liburan"): buat dengan add_savings, isi setoran_awal, lalu laporkan bahwa tabungannya baru dibuat.
-- catat_keuangan default false (sama seperti di app). Isi true hanya jika user bilang dipotong dari saldo, catat di keuangan, atau serupa. Dengan true, setor tercatat sebagai pengeluaran dan tarik sebagai pemasukan (kategori Tabungan).
+- catat_keuangan DEFAULT true: nabung/setor SELALU memotong saldo utama (tercatat pengeluaran kategori Tabungan) dan tarik SELALU menambah saldo utama (tercatat pemasukan kategori Tabungan). Isi false HANYA jika user bilang tanpa potong saldo. Kalau saldo utama kurang untuk menabung, sebut saldonya dan jangan memaksa.
+- \"nabung 20k\" (tanpa nama) = setor 20.000 dari saldo utama ke tabungan. Kalau hanya ada satu tabungan, langsung pakai itu; kalau ada banyak, tanya satu kalimat mau ke tabungan yang mana; kalau belum ada, minta user bikin dulu dengan \"mau nabung untuk (nama)\".
+- \"mau nabung untuk (nama)\" = buat kantong tabungan baru (add_savings) bernama itu, tanpa setoran awal kecuali disebut.
+- \"Pindahin/tarik tabungan X ke saldo utama\" = withdraw_savings (saldo utama bertambah). Boleh sebagian atau semua isi tabungan (pakai terkumpul dari data kalau user bilang semua).
+- Batalkan nabung yang salah: delete_savings_entry (transaksi saldo utama ikut terhapus otomatis). Hapus kantong yang masih ada isinya: tawarkan tarik ke saldo utama dulu.
+- Kamu juga bisa ubah/hapus transaksi keuangan biasa (edit_tx, delete_tx, find_tx).
 - Tarik tidak boleh melebihi isi tabungan; kalau melebihi, sebut isi tabungannya. Kalau nama cocok ke lebih dari satu tabungan, tanya satu kalimat. delete_savings dan reset_data hanya jika user jelas memintanya.
 - Laporkan singkat: nama tabungan, jumlah, dan saldo terbaru (plus progres jika ada target).
 - "Pindahin 100rb dari Laptop ke Liburan" = transfer_savings. "Saldo tabungan Laptop harusnya 750rb" = set_savings_balance. Tanggal selain hari ini (mis. "kemarin", "tgl 3") isi lewat tanggal (YYYY-MM-DD dari tabel kalender).
@@ -2215,7 +2238,8 @@ function aiTool2(name,a){
     const nm=aiStr(a.nama);if(!nm)return 'nama kosong';
     const tg=a.target===undefined?0:Math.abs(Number(a.target))||0,amt=a.setoran_awal===undefined?0:Math.abs(Number(a.setoran_awal))||0;
     if(savs().some(z=>String(z.name).toLowerCase()===nm.toLowerCase()))return 'sudah ada tabungan bernama itu; pakai deposit_savings';
-    const g=svCreate(nm,tg,amt,!!a.catat_keuangan,svDate(a.tanggal));aiRefresh();
+    if(amt&&a.catat_keuangan!==false&&amt>svBal())return 'saldo utama kurang (saldo '+rp(svBal())+')';
+    const g=svCreate(nm,tg,amt,a.catat_keuangan!==false,svDate(a.tanggal));aiRefresh();
     say('Tabungan: '+nm+(tg?' · target '+rp(tg):'')+(amt?' · setor '+rp(amt):''));return 'ok, id='+g.id;
   }
   if(name==='deposit_savings'||name==='withdraw_savings'){
@@ -2224,8 +2248,9 @@ function aiTool2(name,a){
     if(m.length>1)return 'ambigu, pilih salah satu: '+m.map(z=>z.name+' (id '+z.id+')').join(', ');
     const g=m[0];
     if(!dep&&amt>(Number(g.saved)||0))return 'melebihi tabungan '+g.name+' (isi '+rp(g.saved)+')';
-    svMove(g,dep?'dep':'wd',amt,!!a.catat_keuangan,svDate(a.tanggal));aiRefresh();
-    say((dep?'Setor ':'Tarik ')+rp(amt)+' · '+g.name+' → '+rp(g.saved));return 'ok, saldo '+g.name+' sekarang '+g.saved;
+    if(dep&&a.catat_keuangan!==false&&amt>svBal())return 'saldo utama kurang (saldo '+rp(svBal())+')';
+    svMove(g,dep?'dep':'wd',amt,a.catat_keuangan!==false,svDate(a.tanggal));aiRefresh();
+    say((dep?'Setor ':'Tarik ')+rp(amt)+' · '+g.name+' → '+rp(g.saved));return 'ok, saldo '+g.name+' sekarang '+g.saved+', saldo utama sekarang '+svBal();
   }
   if(name==='edit_savings'){
     const m=svMatch(a);if(!m.length)return 'tabungan tidak ditemukan';
@@ -2265,14 +2290,14 @@ function aiTool2(name,a){
     const h=g.hist[i];
     if(name==='delete_savings_entry'){
       const ns=(Number(g.saved)||0)-svEff(h);if(ns<0)return 'tidak bisa dihapus: saldo akan minus';
-      if(a.hapus_transaksi_terkait){const k=state.tx.findIndex(x=>x.cat==='Tabungan'&&x.date===h.d&&Number(x.amt)===Number(h.a)&&String(x.note||'').endsWith(g.name)&&(h.k==='wd'?x.type==='in':x.type==='out'));if(k>-1)state.tx.splice(k,1)}
+      if(a.hapus_transaksi_terkait!==false&&(a.hapus_transaksi_terkait||h.t)){const k=h.t?state.tx.findIndex(x=>String(x.id)===String(h.t)):state.tx.findIndex(x=>x.cat==='Tabungan'&&x.date===h.d&&Number(x.amt)===Number(h.a)&&String(x.note||'').endsWith(g.name)&&(h.k==='wd'?x.type==='in':x.type==='out'));if(k>-1)state.tx.splice(k,1)}
       g.saved=ns;g.hist.splice(i,1);aiRefresh();say('Riwayat '+g.name+' no '+(i+1)+' dihapus');return 'ok, saldo '+g.name+' sekarang '+g.saved;
     }
     let amt=h.a,dt=h.d;
     if(a.jumlah!==undefined){const v=Number(a.jumlah);if(isNaN(v)||(h.k!=='adj'&&v<=0))return 'jumlah tidak valid';amt=h.k==='adj'?v:Math.abs(v)}
     if(a.tanggal!==undefined){const d=svDate(a.tanggal);if(!d)return 'tanggal tidak valid';dt=d}
     const ns=(Number(g.saved)||0)-svEff(h)+svEff({k:h.k,a:amt});if(ns<0)return 'tidak bisa: saldo akan minus';
-    g.saved=ns;h.a=amt;h.d=dt;aiRefresh();say('Riwayat '+g.name+' no '+(i+1)+' diubah');return 'ok, saldo '+g.name+' sekarang '+g.saved;
+    g.saved=ns;h.a=amt;h.d=dt;{const lt=h.t&&state.tx.find(x=>String(x.id)===String(h.t));if(lt){lt.amt=amt;lt.date=dt}}aiRefresh();say('Riwayat '+g.name+' no '+(i+1)+' diubah');return 'ok, saldo '+g.name+' sekarang '+g.saved;
   }
   /* ----- file & reset ----- */
   if(name==='delete_media'){
@@ -2375,6 +2400,50 @@ async function aiReceipt(user,img){
   if(j.dilewati)msg+='\nDilewati: '+j.dilewati;
   return msg;
 }
+function aiAmt(v){
+  v=String(v||'').toLowerCase().replace(/rp\.?/g,'').trim();
+  const m=v.match(/^(\d+(?:[.,]\d+)*)\s*(k|rb|ribu|jt|juta)?$/);if(!m)return 0;
+  if(m[2]){const n=parseFloat(m[1].replace(',','.'));return Math.round(n*(/^(k|rb|ribu)$/.test(m[2])?1e3:1e6))}
+  return Math.round(Number(m[1].replace(/[.,]/g,'')))||0;
+}
+function aiQuick(text){
+  const t=String(text||'').trim().replace(/[.!?]+$/,'');
+  let m=t.match(/^(?:aku |saya |gue |gua )?(?:mau|pengen|ingin|pingin|mo) nabung (?:untuk|buat|utk|bwt)\s+(.+)$/i)||t.match(/^(?:buat|bikin|tambah)(?:in|kan)? (?:kantong )?tabungan(?: baru)?\s+(.+)$/i);
+  if(m){
+    let nm=m[1].trim(),tg=0;const mt=nm.match(/^(.*?)\s+target\s+(\S+)$/i);if(mt){nm=mt[1].trim();tg=aiAmt(mt[2])}
+    if(!nm)return null;
+    nm=nm.charAt(0).toUpperCase()+nm.slice(1);
+    const r=aiTool('add_savings',tg?{nama:nm,target:tg}:{nama:nm});
+    if(/^ok/.test(r))return{acted:true,msg:'Kantong tabungan "'+nm+'" sudah dibuat'+(tg?' dengan target '+rp(tg):'')+'. Ketik "nabung 20k" untuk mengisinya dari saldo utama.'};
+    return{acted:false,msg:/sudah ada/.test(r)?'Kantong "'+nm+'" sudah ada.':r};
+  }
+  m=t.match(/^(?:aku |saya |gue |gua )?nabung\s+(\S+?)(?:\s+(?:ke|untuk|buat|utk|bwt)\s+(.+))?$/i);
+  if(m){
+    const amt=aiAmt(m[1]);if(!amt)return null;
+    const nm=(m[2]||'').trim(),L=savs();
+    const done=(g,r)=>/^ok/.test(r)?{acted:true,msg:'Nabung '+rp(amt)+' ke '+g.name+'. Saldo utama sekarang '+rp(svBal())+', tabungan '+g.name+' '+rp(g.saved)+(g.target?' / '+rp(g.target):'')+'.'}:{acted:false,msg:r};
+    if(!nm){
+      if(!L.length)return{acted:false,msg:'Belum ada kantong tabungan. Ketik "mau nabung untuk (nama tabungan)" dulu ya.'};
+      if(L.length>1)return{acted:false,msg:'Mau nabung ke kantong yang mana? '+L.map(g=>g.name).join(', ')+'. Contoh: "nabung '+m[1]+' ke '+L[0].name+'"'};
+      return done(L[0],aiTool('deposit_savings',{id:L[0].id,jumlah:amt}));
+    }
+    const f=svMatch({nama:nm});
+    if(f.length>1)return{acted:false,msg:'Namanya cocok ke beberapa kantong: '+f.map(g=>g.name).join(', ')+'. Sebut yang lebih lengkap.'};
+    if(f.length===1)return done(f[0],aiTool('deposit_savings',{id:f[0].id,jumlah:amt}));
+    const nn=nm.charAt(0).toUpperCase()+nm.slice(1),r=aiTool('add_savings',{nama:nn,setoran_awal:amt});
+    const g=savs().find(z=>String(z.name).toLowerCase()===nn.toLowerCase());
+    return g&&/^ok/.test(r)?{acted:true,msg:'Kantong "'+nn+'" belum ada, jadi kubuat baru. Nabung '+rp(amt)+' dari saldo utama (sisa '+rp(svBal())+').'}:{acted:false,msg:r};
+  }
+  m=t.match(/^(?:tarik|pindah(?:in|kan)?|ambil)\s+(\S+?)\s+(?:dari|di)\s+(.+?)(?:\s+ke\s+saldo(?:\s+utama)?)?$/i);
+  if(m){
+    const amt=aiAmt(m[1]);if(!amt)return null;
+    const f=svMatch({nama:m[2].replace(/^tabungan\s+/i,'')});
+    if(f.length!==1)return null;
+    const r=aiTool('withdraw_savings',{id:f[0].id,jumlah:amt});
+    return /^ok/.test(r)?{acted:true,msg:'Dipindah '+rp(amt)+' dari '+f[0].name+' ke saldo utama. Saldo utama sekarang '+rp(svBal())+', tabungan '+f[0].name+' '+rp(f[0].saved)+'.'}:{acted:false,msg:r};
+  }
+  return null;
+}
 async function aiSend(text,img){
   text=(text||'').trim();if(AI.busy||(!text&&!img))return;
   const shown=text;if(!text)text='(Gambar tanpa keterangan.) Pahami isi gambar lalu langsung kerjakan sesuai aturan GAMBAR.';
@@ -2389,6 +2458,7 @@ async function aiSend(text,img){
       try{rep=await aiReceipt(shown,img)}catch(e){if(e&&(e.s===401||e.s===403||e.s===408||e.s===429||e instanceof TypeError))throw e;rep=''}
       if(rep){handled=true;acted=true;aiAdd('a',rep);AI.msgs.push({role:'user',parts:[{text:shown||'(mengirim gambar keuangan)'}]},{role:'model',parts:[{text:rep}]});aiTrim()}
     }
+    if(!handled&&!img){const q=aiQuick(shown);if(q){handled=true;if(q.acted)acted=true;aiAdd('a',q.msg);AI.msgs.push({role:'user',parts:[{text:shown}]},{role:'model',parts:[{text:q.msg}]});aiTrim()}}
     if(!handled){
       AI.msgs.push({role:'user',parts:img?[{text},{inlineData:{mimeType:img.mime,data:img.data}}]:[{text}]});aiTrim();
       for(let i=0;i<12;i++){
@@ -2498,7 +2568,7 @@ window.SEC={start(){try{['zaims-sec-v1','zaims-sec-last','zaims-sec-owner'].forE
 (async function initAuth(){
   if (!window.supabase){ authEl.hidden = true; return; }   // tanpa koneksi ke pustaka: tetap jalan secara lokal
   sb = window.supabase.createClient(SB_URL, SB_KEY);
-  sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT" && uid){ setTimeout(showLogin, 0); } });
+  sb.auth.onAuthStateChange((ev, ses) => { accessToken = (ses && ses.access_token) || ""; if (ev === "SIGNED_OUT" && uid){ setTimeout(showLogin, 0); } });
   try{
     const { data } = await sb.auth.getSession();
     if (data && data.session) await startSession(data.session); else showLogin();
