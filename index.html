@@ -1801,11 +1801,39 @@ const AI={msgs:[],busy:false,dots:null,model:''};
 let aiMem='';
 const aiKey=()=>{try{return localStorage.getItem(AI_KEY)||aiMem}catch(e){return aiMem}};
 const AI_TOOLS=[{functionDeclarations:[
+ {name:'add_tx',description:'Catat transaksi uang baru (pemasukan atau pengeluaran)',parameters:{type:'OBJECT',properties:{jenis:{type:'STRING',enum:['masuk','keluar']},jumlah:{type:'NUMBER'},kategori:{type:'STRING',description:'Bebas. Contoh: Makan, Transport, Belanja, Tagihan, Hiburan, Gaji, Bonus, Hadiah, Lainnya'},catatan:{type:'STRING'},tanggal:{type:'STRING',description:'YYYY-MM-DD, kosong = hari ini'}},required:['jenis','jumlah']}},
+ {name:'edit_tx',description:'Ubah transaksi berdasarkan id. Isi hanya field yang berubah',parameters:{type:'OBJECT',properties:{id:{type:'STRING'},jenis:{type:'STRING',enum:['masuk','keluar']},jumlah:{type:'NUMBER'},kategori:{type:'STRING'},catatan:{type:'STRING'},tanggal:{type:'STRING'}},required:['id']}},
+ {name:'delete_tx',description:'Hapus satu atau banyak transaksi berdasarkan id',parameters:{type:'OBJECT',properties:{ids:{type:'ARRAY',items:{type:'STRING'}}},required:['ids']}},
+ {name:'find_tx',description:'Cari transaksi di seluruh riwayat (maks 100 hasil, terbaru dulu). Semua filter opsional',parameters:{type:'OBJECT',properties:{dari:{type:'STRING'},sampai:{type:'STRING'},jenis:{type:'STRING',enum:['masuk','keluar']},kategori:{type:'STRING'},kata:{type:'STRING',description:'cari di catatan atau kategori'}}}},
+ {name:'add_schedule',description:'Tambah kegiatan rutin mingguan ke satu atau banyak hari',parameters:{type:'OBJECT',properties:{teks:{type:'STRING'},hari:{type:'ARRAY',items:{type:'STRING'},description:'Senin..Minggu, atau ["semua"]'},sampai:{type:'STRING',description:'YYYY-MM-DD, kosong = permanen'},jam:{type:'STRING',description:'HH:MM, opsional'}},required:['teks','hari']}},
+ {name:'edit_schedule',description:'Ubah kegiatan rutin: teks, hari (pindah), batas tanggal, jam. sampai="permanen" menghapus batas',parameters:{type:'OBJECT',properties:{id:{type:'STRING'},teks:{type:'STRING'},hari:{type:'STRING'},sampai:{type:'STRING'},jam:{type:'STRING'}},required:['id']}},
+ {name:'delete_schedule',description:'Hapus kegiatan rutin berdasarkan id (entri milik tugas dihapus lewat delete_task)',parameters:{type:'OBJECT',properties:{ids:{type:'ARRAY',items:{type:'STRING'}}},required:['ids']}},
+ {name:'add_task',description:'Tambah tugas. Deadline dan waktu mengerjakan otomatis masuk jadwal',parameters:{type:'OBJECT',properties:{judul:{type:'STRING'},catatan:{type:'STRING'},deadline:{type:'STRING',description:'YYYY-MM-DD'},jam_deadline:{type:'STRING',description:'HH:MM'},kerjakan_pada:{type:'STRING',description:'YYYY-MM-DD'},jam_kerjakan:{type:'STRING',description:'HH:MM'},prioritas:{type:'STRING',enum:['rendah','sedang','tinggi']}},required:['judul']}},
+ {name:'edit_task',description:'Ubah tugas berdasarkan id. Isi hanya field yang berubah; string kosong menghapus deadline atau waktu',parameters:{type:'OBJECT',properties:{id:{type:'STRING'},judul:{type:'STRING'},catatan:{type:'STRING'},deadline:{type:'STRING'},jam_deadline:{type:'STRING'},kerjakan_pada:{type:'STRING'},jam_kerjakan:{type:'STRING'},prioritas:{type:'STRING',enum:['rendah','sedang','tinggi']}},required:['id']}},
+ {name:'set_task_done',description:'Tandai tugas selesai atau aktif lagi',parameters:{type:'OBJECT',properties:{ids:{type:'ARRAY',items:{type:'STRING'}},selesai:{type:'BOOLEAN'}},required:['ids','selesai']}},
+ {name:'delete_task',description:'Hapus satu atau banyak tugas berdasarkan id',parameters:{type:'OBJECT',properties:{ids:{type:'ARRAY',items:{type:'STRING'}}},required:['ids']}},
+ {name:'delete_media',description:'Hapus file (gambar atau PDF) di galeri jadwal berdasarkan id',parameters:{type:'OBJECT',properties:{ids:{type:'ARRAY',items:{type:'STRING'}}},required:['ids']}},
+ {name:'reset_data',description:'Kosongkan seluruh data satu bagian',parameters:{type:'OBJECT',properties:{cakupan:{type:'STRING',enum:['keuangan','jadwal','tugas','file','semua']}},required:['cakupan']}},
  {name:'set_theme',description:'Ganti tema tampilan app',parameters:{type:'OBJECT',properties:{mode:{type:'STRING',enum:['terang','gelap']}},required:['mode']}},
  {name:'open_tab',description:'Buka halaman app: home, keuangan, jadwal, profil',parameters:{type:'OBJECT',properties:{tab:{type:'STRING',enum:['home','keuangan','jadwal','profil']}},required:['tab']}}
 ]}];
+function aiData(){
+  const m=state.tx.filter(inMonth),t0=iso(new Date()),j=i=>({id:i.id,teks:i.text,jam:i.time||''});
+  const ag=off=>{const d=new Date();d.setDate(d.getDate()+off);const key=iso(d);return (state.sched[(d.getDay()+6)%7]||[]).filter(it=>it.date?it.date===key:(!it.until||it.until>=key)).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99')).map(j)};
+  const tk=t=>({id:t.id,judul:t.title,catatan:t.note||'',deadline:t.deadline||'',jam_deadline:t.time||'',kerjakan_pada:t.doOn||'',jam_kerjakan:t.doTime||'',prioritas:PRIO[t.prio]||''});
+  return{
+    hari_ini:t0,
+    saldo:sum(state.tx,'in')-sum(state.tx,'out'),masuk_bulan_ini:sum(m,'in'),keluar_bulan_ini:sum(m,'out'),jumlah_semua_transaksi:state.tx.length,
+    transaksi_terbaru:[...state.tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))||(Number(b.id)||0)-(Number(a.id)||0)).slice(0,100).map(x=>({id:x.id,tgl:x.date,jenis:x.type==='in'?'masuk':'keluar',jumlah:x.amt,kategori:x.cat||'',catatan:x.note||''})),
+    jadwal_rutin:DAYS.map((n,d)=>({hari:n,kegiatan:(state.sched[d]||[]).filter(it=>!it.taskId).map(it=>({id:it.id,teks:it.text,jam:it.time||'',sampai:it.until||'permanen'}))})),
+    jadwal_hari_ini:ag(0),jadwal_besok:ag(1),
+    tugas_aktif:state.tasks.filter(t=>!t.done).sort((a,b)=>dueKey(a).localeCompare(dueKey(b))||(b.prio||0)-(a.prio||0)).slice(0,60).map(tk),
+    tugas_selesai:state.tasks.filter(t=>t.done).slice(-30).map(tk),
+    file:(media||[]).map(f=>({id:f.id,nama:f.name,jenis:f.kind}))
+  };
+}
 function aiSystem(){
-  return 'Kamu asisten di app "Zaim’s Manager". Di sini ada keuangan, jadwal, dan tugas. Jawab dalam bahasa Indonesia, santai dan singkat. Data hanya untuk dibaca; kamu tidak bisa mengubahnya. Kamu bisa mengganti tema dan membuka halaman lewat tool. Jangan mengarang data.\nHari ini: '+new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'\nData:\n'+JSON.stringify(mgAi());
+  return 'Kamu asisten penuh di app "Zaim’s Manager" yang mengelola keuangan, jadwal rutin, tugas, dan file. Kamu punya akses penuh: lihat, tambah, ubah, dan hapus semua data lewat tool, termasuk banyak item sekaligus. Jawab dalam bahasa Indonesia, santai dan singkat. Kalau perintah sudah jelas, langsung kerjakan tanpa meminta izin. Tanya balik hanya kalau item yang dimaksud ambigu atau info penting tidak ada. Pakai id dari data; jangan mengarang data atau id. Ubah kata seperti besok, lusa, atau Jumat depan menjadi tanggal YYYY-MM-DD dari tanggal hari ini. Transaksi di data hanya 100 terbaru; pakai find_tx untuk riwayat lebih lama. Tugas dengan deadline atau waktu kerja otomatis muncul di jadwal; ubah lewat tool tugas, bukan tool jadwal. Setelah selesai, laporkan singkat apa yang berubah.\nHari ini: '+new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'\nData:\n'+JSON.stringify(aiData());
 }
 function aiAdd(c,t){
   const el=document.createElement('div');el.className='m '+c;
@@ -1813,15 +1841,127 @@ function aiAdd(c,t){
   const box=$('#aim');box.insertBefore(el,AI.dots&&AI.dots.parentNode===box?AI.dots:null);
   box.scrollTop=box.scrollHeight;return el;
 }
+let _nidv=0;const nid2=()=>{_nidv=Math.max(Date.now(),_nidv+10);return _nidv};
+const aiStr=v=>String(v==null?'':v).trim();
+const aiDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(new Date(v+'T00:00'));
+const aiTime=v=>/^\d{2}:\d{2}$/.test(v);
+const aiIds=a=>(Array.isArray(a.ids)?a.ids:[a.ids!==undefined?a.ids:a.id]).map(aiStr).filter(Boolean);
+const aiPrio=v=>{const i=['rendah','sedang','tinggi'].indexOf(aiStr(v).toLowerCase());return i};
+function aiDay(v){const s=aiStr(v).toLowerCase();return DAYS.findIndex(d=>d.toLowerCase()===s)}
+function aiRefresh(){save();renderAll();renderTasks();refreshSched()}
+function aiTaskFields(t,a){
+  const f=(k,v)=>a[k]!==undefined&&(t[v]=aiStr(a[k]));
+  if(a.judul!==undefined){if(!aiStr(a.judul))return 'judul kosong';t.title=aiStr(a.judul)}
+  f('catatan','note');f('deadline','deadline');f('jam_deadline','time');f('kerjakan_pada','doOn');f('jam_kerjakan','doTime');
+  if(a.prioritas!==undefined){const p=aiPrio(a.prioritas);if(p<0)return 'prioritas: rendah, sedang, atau tinggi';t.prio=p}
+  for(const k of ['deadline','doOn'])if(t[k]&&!aiDate(t[k]))return 'tanggal tidak valid, pakai YYYY-MM-DD';
+  for(const k of ['time','doTime'])if(t[k]&&!aiTime(t[k]))return 'jam tidak valid, pakai HH:MM';
+  if(!t.deadline)t.time='';if(!t.doOn)t.doTime='';
+  if(t.deadline&&t.doOn&&(t.doOn>t.deadline||(t.doOn===t.deadline&&t.time&&t.doTime&&t.doTime>t.time)))return 'waktu mengerjakan melewati deadline';
+  return '';
+}
 function aiTool(name,a){
-  const str=v=>String(v==null?'':v).trim();
+  try{return aiTool2(name,a||{})}catch(e){return 'error: '+String(e&&e.message||e).slice(0,120)}
+}
+function aiTool2(name,a){
+  const say=t=>aiAdd('t','✓ '+t);
   if(name==='set_theme'){
-    const g=str(a.mode)==='gelap';document.documentElement.dataset.theme=g?'dark':'light';aiAdd('t','✓ Tema '+(g?'gelap':'terang'));return 'ok';
+    const g=aiStr(a.mode)==='gelap';document.documentElement.dataset.theme=g?'dark':'light';say('Tema '+(g?'gelap':'terang'));return 'ok';
   }
   if(name==='open_tab'){
-    const t=str(a.tab),P={home:['beranda',0],keuangan:['keuangan',1],jadwal:['jadwal',2],profil:['profil',3]};
+    const t=aiStr(a.tab),P={home:['beranda',0],keuangan:['keuangan',1],jadwal:['jadwal',2],profil:['profil',3]};
     if(!P[t])return 'halaman tidak dikenal';
     aiClose();go(P[t][0],P[t][1]);return 'ok';
+  }
+  /* ----- keuangan ----- */
+  if(name==='add_tx'){
+    const j=aiStr(a.jenis);if(j!=='masuk'&&j!=='keluar')return 'jenis: masuk atau keluar';
+    const amt=Math.abs(Number(a.jumlah));if(!amt)return 'jumlah tidak valid';
+    const date=aiStr(a.tanggal)||today();if(!aiDate(date))return 'tanggal tidak valid, pakai YYYY-MM-DD';
+    const id=nid2();state.tx.push({id,type:j==='masuk'?'in':'out',amt,cat:aiStr(a.kategori)||'Lainnya',note:aiStr(a.catatan),date});lastId=id;
+    aiRefresh();say((j==='masuk'?'Masuk ':'Keluar ')+rp(amt));return 'ok, id='+id;
+  }
+  if(name==='edit_tx'){
+    const x=state.tx.find(t=>String(t.id)===aiStr(a.id));if(!x)return 'id tidak ditemukan';
+    if(a.jenis!==undefined){const j=aiStr(a.jenis);if(j!=='masuk'&&j!=='keluar')return 'jenis: masuk atau keluar';x.type=j==='masuk'?'in':'out'}
+    if(a.jumlah!==undefined){const n=Math.abs(Number(a.jumlah));if(!n)return 'jumlah tidak valid';x.amt=n}
+    if(a.kategori!==undefined)x.cat=aiStr(a.kategori)||'Lainnya';
+    if(a.catatan!==undefined)x.note=aiStr(a.catatan);
+    if(a.tanggal!==undefined){const d=aiStr(a.tanggal);if(!aiDate(d))return 'tanggal tidak valid, pakai YYYY-MM-DD';x.date=d}
+    aiRefresh();say('Transaksi diubah');return 'ok';
+  }
+  if(name==='delete_tx'){
+    const ids=aiIds(a),n=state.tx.length;state.tx=state.tx.filter(t=>!ids.includes(String(t.id)));
+    const c=n-state.tx.length;if(!c)return 'id tidak ditemukan';aiRefresh();say(c+' transaksi dihapus');return 'ok, '+c+' dihapus';
+  }
+  if(name==='find_tx'){
+    const k=aiStr(a.kata).toLowerCase(),c=aiStr(a.kategori).toLowerCase(),j=aiStr(a.jenis);
+    const r=state.tx.filter(x=>(!a.dari||x.date>=aiStr(a.dari))&&(!a.sampai||x.date<=aiStr(a.sampai))&&(!j||x.type===(j==='masuk'?'in':'out'))&&(!c||String(x.cat||'').toLowerCase()===c)&&(!k||(String(x.note||'')+' '+String(x.cat||'')).toLowerCase().includes(k)))
+      .sort((p,q)=>String(q.date).localeCompare(String(p.date))||(Number(q.id)||0)-(Number(p.id)||0));
+    return JSON.stringify({total:r.length,jumlah_masuk:sum(r,'in'),jumlah_keluar:sum(r,'out'),hasil:r.slice(0,100).map(x=>({id:x.id,tgl:x.date,jenis:x.type==='in'?'masuk':'keluar',jumlah:x.amt,kategori:x.cat||'',catatan:x.note||''}))});
+  }
+  /* ----- jadwal rutin ----- */
+  if(name==='add_schedule'){
+    const text=aiStr(a.teks);if(!text)return 'teks kosong';
+    const hs=(Array.isArray(a.hari)?a.hari:[a.hari]).map(aiStr);if(!hs.length||!hs[0])return 'isi hari';
+    const days=hs.some(h=>h.toLowerCase()==='semua')?[0,1,2,3,4,5,6]:[...new Set(hs.map(aiDay))];
+    if(days.some(d=>d<0))return 'nama hari tidak dikenal: pakai Senin sampai Minggu atau semua';
+    const until=aiStr(a.sampai),time=aiStr(a.jam);
+    if(until&&!aiDate(until))return 'tanggal sampai tidak valid';if(time&&!aiTime(time))return 'jam tidak valid, pakai HH:MM';
+    const ids=[];days.forEach(d=>{const it={id:nid2(),text};if(until)it.until=until;if(time)it.time=time;state.sched[d].push(it);ids.push(it.id)});
+    aiRefresh();say('Jadwal: '+text);return 'ok, id='+ids.join(',');
+  }
+  if(name==='edit_schedule'){
+    const id=aiStr(a.id);let d0=-1,it=null;
+    state.sched.forEach((arr,d)=>{const f=arr.find(x=>String(x.id)===id);if(f){it=f;d0=d}});
+    if(!it)return 'id tidak ditemukan';if(it.taskId)return 'entri ini milik tugas; ubah lewat edit_task';
+    if(a.teks!==undefined){if(!aiStr(a.teks))return 'teks kosong';it.text=aiStr(a.teks)}
+    if(a.sampai!==undefined){const u=aiStr(a.sampai);if(!u||u==='permanen')delete it.until;else if(aiDate(u))it.until=u;else return 'tanggal sampai tidak valid'}
+    if(a.jam!==undefined){const t=aiStr(a.jam);if(!t)delete it.time;else if(aiTime(t))it.time=t;else return 'jam tidak valid, pakai HH:MM'}
+    if(a.hari!==undefined){const d=aiDay(a.hari);if(d<0)return 'nama hari tidak dikenal';if(d!==d0){state.sched[d0]=state.sched[d0].filter(x=>x!==it);state.sched[d].push(it)}}
+    aiRefresh();say('Jadwal diubah: '+it.text);return 'ok';
+  }
+  if(name==='delete_schedule'){
+    const ids=aiIds(a);let c=0,skip=0;
+    state.sched.forEach((arr,d)=>{state.sched[d]=arr.filter(x=>{if(!ids.includes(String(x.id)))return true;if(x.taskId){skip++;return true}c++;return false})});
+    if(!c)return skip?'entri milik tugas; hapus lewat delete_task':'id tidak ditemukan';
+    aiRefresh();say(c+' kegiatan dihapus');return 'ok, '+c+' dihapus'+(skip?'; '+skip+' entri tugas dilewati':'');
+  }
+  /* ----- tugas ----- */
+  if(name==='add_task'){
+    const title=aiStr(a.judul);if(!title)return 'judul kosong';
+    const t={id:nid2(),title,note:'',deadline:'',time:'',doOn:'',doTime:'',prio:1,done:false};
+    const e=aiTaskFields(t,a);if(e)return e;
+    state.tasks.push(t);syncTaskSched(t);aiRefresh();say('Tugas: '+title);return 'ok, id='+t.id;
+  }
+  if(name==='edit_task'){
+    const t=state.tasks.find(x=>String(x.id)===aiStr(a.id));if(!t)return 'id tidak ditemukan';
+    const c=Object.assign({},t),e=aiTaskFields(c,a);if(e)return e;
+    Object.assign(t,c);syncTaskSched(t);aiRefresh();say('Tugas diubah: '+t.title);return 'ok';
+  }
+  if(name==='set_task_done'){
+    const ids=aiIds(a);let c=0;state.tasks.forEach(t=>{if(ids.includes(String(t.id))){t.done=!!a.selesai;syncTaskSched(t);c++}});
+    if(!c)return 'id tidak ditemukan';aiRefresh();say(c+' tugas '+(a.selesai?'selesai':'aktif lagi'));return 'ok';
+  }
+  if(name==='delete_task'){
+    const ids=aiIds(a),n=state.tasks.length;
+    state.tasks=state.tasks.filter(t=>!ids.includes(String(t.id)));
+    state.sched.forEach((arr,d)=>{state.sched[d]=arr.filter(it=>!ids.includes(String(it.taskId)))});
+    const c=n-state.tasks.length;if(!c)return 'id tidak ditemukan';aiRefresh();say(c+' tugas dihapus');return 'ok, '+c+' dihapus';
+  }
+  /* ----- file & reset ----- */
+  if(name==='delete_media'){
+    const ids=aiIds(a),ms=media.filter(m=>ids.includes(String(m.id)));
+    if(!ms.length)return 'id tidak ditemukan';ms.forEach(removeMedia);say(ms.length+' file dihapus');return 'ok, '+ms.length+' dihapus';
+  }
+  if(name==='reset_data'){
+    const c=aiStr(a.cakupan),all=c==='semua';
+    if(!['keuangan','jadwal','tugas','file','semua'].includes(c))return 'cakupan tidak dikenal';
+    if(all||c==='keuangan')state.tx=[];
+    if(all||c==='tugas'){state.tasks=[];state.sched.forEach((arr,d)=>{state.sched[d]=arr.filter(it=>!it.taskId)})}
+    if(all||c==='jadwal')state.sched.forEach((arr,d)=>{state.sched[d]=arr.filter(it=>it.taskId)});
+    if(all||c==='file')media.slice().forEach(removeMedia);
+    aiRefresh();say('Data dikosongkan: '+c);return 'ok';
   }
   return 'tool tidak dikenal';
 }
@@ -1850,7 +1990,7 @@ async function aiSend(text){
   AI.msgs.push({role:'user',parts:[{text}]});aiTrim();aiAdd('u',text);
   AI.dots=aiAdd('a','…');
   try{
-    for(let i=0;i<5;i++){
+    for(let i=0;i<12;i++){
       const d=await aiCall({systemInstruction:{parts:[{text:aiSystem()}]},tools:AI_TOOLS,contents:AI.msgs});
       const c=d.candidates&&d.candidates[0],ps=(c&&c.content&&c.content.parts)||[];
       if(!ps.length)throw {s:200,m:'Balasan kosong'};
@@ -1878,7 +2018,7 @@ function aiView(){
 }
 function aiSuggest(){
   const box=$('#aim');if(box.children.length)return;
-  box.innerHTML='<div class="asg"><button class="chip" type="button" data-s="Berapa saldo dan pengeluaran bulan ini?">Saldo</button><button class="chip" type="button" data-s="Apa jadwal dan tugas terdekat?">Jadwal &amp; tugas</button></div>';
+  box.innerHTML='<div class="asg"><button class="chip" type="button" data-s="Berapa saldo dan pengeluaran bulan ini?">Saldo</button><button class="chip" type="button" data-s="Apa jadwal dan tugas terdekat?">Jadwal &amp; tugas</button><button class="chip" type="button" data-p="Catat pengeluaran: ">Catat uang</button><button class="chip" type="button" data-p="Tambah tugas: ">Tambah tugas</button></div>';
 }
 function aiOpen(){
   ai.classList.add('show');
