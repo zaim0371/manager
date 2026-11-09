@@ -1843,11 +1843,11 @@ function aiData(){
   return{
     hari_ini:t0,hari_ini_nama:DAYS[todayIdx()],kalender:Array.from({length:21},(_,i)=>{const d=new Date();d.setDate(d.getDate()+i);return DAYS[(d.getDay()+6)%7]+' '+iso(d)+(i===0?' (hari ini)':i===1?' (besok)':i===2?' (lusa)':'')}),
     saldo:sum(state.tx,'in')-sum(state.tx,'out'),masuk_bulan_ini:sum(m,'in'),keluar_bulan_ini:sum(m,'out'),jumlah_semua_transaksi:state.tx.length,
-    transaksi_terbaru:[...state.tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))||(Number(b.id)||0)-(Number(a.id)||0)).slice(0,100).map(x=>({id:x.id,tgl:x.date,jenis:x.type==='in'?'masuk':'keluar',jumlah:x.amt,kategori:x.cat||'',catatan:x.note||''})),
+    transaksi_terbaru:[...state.tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))||(Number(b.id)||0)-(Number(a.id)||0)).slice(0,40).map(x=>({id:x.id,tgl:x.date,jenis:x.type==='in'?'masuk':'keluar',jumlah:x.amt,kategori:x.cat||'',catatan:x.note||''})),
     jadwal:DAYS.map((n,d)=>({hari:n,kegiatan:(state.sched[d]||[]).filter(it=>!it.taskId).map(it=>({id:it.id,teks:it.text,jam:it.time||'',tipe:it.date?'sekali':'tiap minggu',tanggal:it.date||'',sampai:it.until||'permanen'}))})),
     jadwal_hari_ini:ag(0),jadwal_besok:ag(1),
     tugas_aktif:state.tasks.filter(t=>!t.done).sort((a,b)=>dueKey(a).localeCompare(dueKey(b))||(b.prio||0)-(a.prio||0)).slice(0,60).map(tk),
-    tugas_selesai:state.tasks.filter(t=>t.done).slice(-30).map(tk),
+    tugas_selesai:state.tasks.filter(t=>t.done).slice(-10).map(tk),
     file:(media||[]).map(f=>({id:f.id,nama:f.name,jenis:f.kind}))
   };
 }
@@ -1874,7 +1874,7 @@ LANGKAH 4 - KERJAKAN
 - Perintah jelas → langsung kerjakan tanpa minta izin. Tanya balik hanya jika benar-benar tidak bisa ditebak (mis. item yang akan dihapus ambigu); satu pertanyaan singkat saja.
 - Cek data dulu supaya tidak membuat duplikat. Kalau sudah ada, ubah atau beri tahu.
 - Koreksi dari user ("bukan tugas, jadwal", "salah", "harusnya Kamis"): perbaiki data yang baru kamu buat (hapus yang salah, buat yang benar atau edit) tanpa tanya.
-- Pakai id dari data; jangan mengarang id atau data. Transaksi di data hanya 100 terbaru; pakai find_tx untuk riwayat lebih lama.
+- Pakai id dari data; jangan mengarang id atau data. Transaksi di data hanya 40 terbaru; pakai find_tx untuk riwayat lebih lama.
 - Tugas dengan deadline atau waktu kerja otomatis tampil di jadwal; ubah lewat tool tugas, bukan tool jadwal.
 - reset_data hanya jika user jelas memintanya.
 - Nominal: 25rb atau 25k = 25000, 1,5jt = 1500000. Tanpa mata uang = Rupiah. Kategori transaksi pilih yang paling cocok (Makan, Transport, Belanja, Tagihan, Hiburan, Kesehatan, Gaji, Bonus, Hadiah, Lainnya).
@@ -1985,14 +1985,14 @@ function aiTool2(name,a){
       const ex=state.sched[d].find(x=>!x.taskId&&x.date===dt&&String(x.text).toLowerCase()===text.toLowerCase()&&(x.time||'')===time);
       if(ex)return 'sudah ada, id='+ex.id;
       const it={id:nid2(),text,date:dt,until:dt};if(time)it.time=time;state.sched[d].push(it);
-      aiRefresh();say('Jadwal: '+text+' · '+DAYS[d]+' '+fmtShort(dt));return 'ok, id='+it.id+', '+DAYS[d]+' '+dt+' (sekali)';
+      aiRefresh();say('Jadwal: '+text+' · '+DAYS[d]+' '+fmtShort(dt)+(time?' '+time:'')+' · sekali');return 'ok, id='+it.id+', '+DAYS[d]+' '+dt+' (sekali)';
     }
     const hs=(Array.isArray(a.hari)?a.hari:[a.hari]).map(aiStr);if(!hs.length||!hs[0])return 'isi tanggal (sekali) atau hari (tiap minggu)';
     const days=hs.some(h=>h.toLowerCase()==='semua')?[0,1,2,3,4,5,6]:[...new Set(hs.map(aiDay))];
     if(days.some(d=>d<0))return 'nama hari tidak dikenal: pakai Senin sampai Minggu atau semua';
     if(until&&!aiDate(until))return 'tanggal sampai tidak valid';
     const ids=[];days.forEach(d=>{const it={id:nid2(),text};if(until)it.until=until;if(time)it.time=time;state.sched[d].push(it);ids.push(it.id)});
-    aiRefresh();say('Jadwal: '+text+' · '+(days.length===7?'tiap hari':days.map(d=>DAYS[d]).join(', ')));return 'ok, id='+ids.join(',')+' (tiap minggu)';
+    aiRefresh();say('Jadwal: '+text+' · '+(days.length===7?'tiap hari':days.map(d=>DAYS[d]).join(', '))+' · tiap minggu');return 'ok, id='+ids.join(',')+' (tiap minggu)';
   }
   if(name==='edit_schedule'){
     const id=aiStr(a.id);let d0=-1,it=null;
@@ -2057,12 +2057,18 @@ function aiTool2(name,a){
 function aiTrim(){
   while(AI.msgs.length>24){AI.msgs.shift();while(AI.msgs.length&&!(AI.msgs[0].role==='user'&&AI.msgs[0].parts[0]&&AI.msgs[0].parts[0].text!==undefined))AI.msgs.shift()}
 }
-async function aiCall(obj){
+async function aiCall(obj,tb){
+  if(tb===undefined)tb=256;
   let last={s:404,m:'Model tidak ditemukan'};
   for(const m of (AI.model?[AI.model]:AI_MODELS)){
     for(const th of [true,false]){
-      const body=JSON.stringify({...obj,generationConfig:th?{temperature:.2,thinkingConfig:{thinkingBudget:1024}}:{temperature:.2}});
-      const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':aiKey()},body});
+      const gc=Object.assign({temperature:.2},obj.generationConfig||{},th?{thinkingConfig:{thinkingBudget:tb}}:{});
+      const body=JSON.stringify({...obj,generationConfig:gc});
+      const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),45000);
+      let r;
+      try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':aiKey()},body,signal:ac.signal})}
+      catch(e){clearTimeout(tm);if(e&&e.name==='AbortError')throw {s:408,m:'Terlalu lama'};throw e}
+      clearTimeout(tm);
       if(r.ok){AI.model=m;return r.json()}
       const j=await r.json().catch(()=>null);last={s:r.status,m:(j&&j.error&&j.error.message)||''};
       if(r.status===400&&th&&!/API key/i.test(last.m))continue;
@@ -2072,35 +2078,87 @@ async function aiCall(obj){
   }
   throw last;
 }
+/* ----- jalur cepat gambar keuangan: SATU panggilan, hasil JSON terstruktur, dicatat langsung oleh app ----- */
+const AI_FIN=/struk|nota|belanja|riwayat|mutasi|transfer|pengeluaran|pemasukan|catat|uang|bayar|beli|transaksi|rekening|saldo|tagihan|invoice|bukti|order|pesanan/i;
+const AI_RSCHEMA={type:'OBJECT',propertyOrdering:['jenis_gambar','toko','subtotal','total_dibayar','transaksi','dilewati'],properties:{
+  jenis_gambar:{type:'STRING',enum:['struk','riwayat','transfer','lain']},
+  toko:{type:'STRING'},subtotal:{type:'NUMBER'},total_dibayar:{type:'NUMBER'},
+  transaksi:{type:'ARRAY',items:{type:'OBJECT',propertyOrdering:['tanggal','jenis','jumlah','kategori','catatan'],properties:{tanggal:{type:'STRING'},jenis:{type:'STRING',enum:['masuk','keluar']},jumlah:{type:'NUMBER'},kategori:{type:'STRING'},catatan:{type:'STRING'}},required:['tanggal','jenis','jumlah']}},
+  dilewati:{type:'STRING'}},required:['jenis_gambar','transaksi']};
+function aiReceiptPrompt(user){
+  return 'Kamu pembaca struk dan riwayat belanja yang teliti. Baca SELURUH gambar, lalu isi JSON sesuai skema.\nHari ini: '+today()+'.\n'+
+  'jenis_gambar: struk (nota satu pembelian), riwayat (daftar pesanan, transaksi, atau mutasi), transfer (bukti transfer), lain (bukan soal uang).\n'+
+  '- struk: isi toko, subtotal, total_dibayar (jumlah akhir yang dibayar setelah diskon, pajak, ongkir; BUKAN harga satuan, tunai, atau kembalian). transaksi berisi SATU keluar sebesar total_dibayar; catatan = nama toko + 1 sampai 3 item utama.\n'+
+  '- riwayat/mutasi: satu transaksi per pesanan atau baris, jumlah = total baris itu. Lewati yang dibatalkan, gagal, atau menunggu pembayaran. Refund, uang kembali, top up masuk, kredit, gaji = masuk; selain itu keluar.\n'+
+  '- transfer: keluar jika pengirimnya pemilik app, masuk jika ia penerima; tidak jelas = keluar.\n'+
+  '- jumlah = Rupiah utuh. "Rp 25.000" = 25000, "25.000,00" = 25000, "25rb" = 25000. Mata uang asing: lewati.\n'+
+  '- tanggal YYYY-MM-DD. Format Indonesia hari/bulan/tahun (05/11/2026 = 5 November 2026). Tahun tidak tertulis = tahun ini. Tidak terbaca = hari ini.\n'+
+  '- Jangan menebak angka yang tidak jelas: lewati dan jelaskan singkat di dilewati.\n'+
+  '- kategori pilih: Makan, Transport, Belanja, Tagihan, Hiburan, Kesehatan, Gaji, Bonus, Hadiah, Lainnya.\n'+
+  '- Kalau gambar bukan soal uang: jenis_gambar lain dan transaksi kosong.'+(user?'\nPesan dari user (utamakan): '+user:'');
+}
+async function aiReceipt(user,img){
+  const d=await aiCall({contents:[{role:'user',parts:[{text:aiReceiptPrompt(user)},{inlineData:{mimeType:img.mime,data:img.data}}]}],generationConfig:{temperature:0,responseMimeType:'application/json',responseSchema:AI_RSCHEMA}},512);
+  const c=d.candidates&&d.candidates[0],raw=((c&&c.content&&c.content.parts)||[]).filter(x=>x.text&&!x.thought).map(x=>x.text).join('');
+  let j;try{j=JSON.parse(raw)}catch(e){return ''}
+  if(!j||j.jenis_gambar==='lain')return '';
+  let tr=(Array.isArray(j.transaksi)?j.transaksi:[]).filter(x=>x&&Number(x.jumlah)>0);
+  if(!tr.length)return 'Tidak ada transaksi yang bisa dibaca dari gambar.'+(j.dilewati?' '+j.dilewati:'')+' Coba foto yang lebih jelas.';
+  if(j.jenis_gambar==='struk'&&tr.length===1&&Number(j.total_dibayar)>0)tr[0].jumlah=Number(j.total_dibayar);
+  const out=aiTool('add_tx_banyak',{items:tr});
+  let r;try{r=JSON.parse(out)}catch(e){return 'Gagal mencatat: '+out}
+  const t=[];
+  if(r.dicatat)t.push(r.dicatat+' transaksi dicatat');
+  if(r.total_keluar)t.push('keluar '+rp(r.total_keluar));
+  if(r.total_masuk)t.push('masuk '+rp(r.total_masuk));
+  if(r.duplikat_dilewati)t.push(r.duplikat_dilewati+' sudah ada, dilewati');
+  if(r.nomor_gagal&&r.nomor_gagal.length)t.push(r.nomor_gagal.length+' baris tidak valid');
+  let msg=t.join(' · ');
+  if(r.dicatat===1&&tr.length===1)msg+='\n'+(tr[0].catatan||tr[0].kategori||'')+' · '+tr[0].tanggal;
+  else if(tr.length){const ds=tr.map(x=>x.tanggal).filter(Boolean).sort();if(ds.length)msg+='\n'+ds[0]+(ds[ds.length-1]!==ds[0]?' s/d '+ds[ds.length-1]:'')}
+  if(j.dilewati)msg+='\nDilewati: '+j.dilewati;
+  return msg;
+}
 async function aiSend(text,img){
   text=(text||'').trim();if(AI.busy||(!text&&!img))return;
   const shown=text;if(!text)text='(Gambar tanpa keterangan.) Pahami isi gambar lalu langsung kerjakan sesuai aturan GAMBAR.';
   AI.busy=true;const sg=$('#aim .asg');if(sg)sg.remove();
   const base=AI.msgs.length;let acted=false;
-  AI.msgs.push({role:'user',parts:img?[{text},{inlineData:{mimeType:img.mime,data:img.data}}]:[{text}]});aiTrim();aiAdd('u',shown,img&&img.url);
-  AI.dots=aiAdd('a','…');
+  aiAdd('u',shown,img&&img.url);
+  AI.dots=aiAdd('a','…');if(img)AI.dots.append(document.createTextNode(' Membaca gambar…'));
   try{
-    for(let i=0;i<12;i++){
-      const d=await aiCall({systemInstruction:{parts:[{text:aiSystem()}]},tools:AI_TOOLS,contents:AI.msgs});
-      const c=d.candidates&&d.candidates[0],ps=(c&&c.content&&c.content.parts)||[];
-      if(!ps.length)throw {s:200,m:'Balasan kosong'};
-      AI.msgs.push({role:'model',parts:ps});
-      const tx=ps.filter(x=>x.text&&!x.thought).map(x=>x.text).join('\n').trim();
-      if(tx)aiAdd('a',tx);
-      const fc=ps.filter(x=>x.functionCall);
-      if(!fc.length)break;
-      acted=true;
-      AI.msgs.push({role:'user',parts:fc.map(x=>({functionResponse:{name:x.functionCall.name,response:{result:aiTool(x.functionCall.name,x.functionCall.args||{})}}}))});
+    let handled=false;
+    if(img&&(!shown||AI_FIN.test(shown))){
+      let rep='';
+      try{rep=await aiReceipt(shown,img)}catch(e){if(e&&(e.s===401||e.s===403||e.s===408||e.s===429||e instanceof TypeError))throw e;rep=''}
+      if(rep){handled=true;acted=true;aiAdd('a',rep);AI.msgs.push({role:'user',parts:[{text:shown||'(mengirim gambar keuangan)'}]},{role:'model',parts:[{text:rep}]});aiTrim()}
+    }
+    if(!handled){
+      AI.msgs.push({role:'user',parts:img?[{text},{inlineData:{mimeType:img.mime,data:img.data}}]:[{text}]});aiTrim();
+      for(let i=0;i<12;i++){
+        const d=await aiCall({systemInstruction:{parts:[{text:aiSystem()}]},tools:AI_TOOLS,contents:AI.msgs});
+        const c=d.candidates&&d.candidates[0],ps=(c&&c.content&&c.content.parts)||[];
+        if(!ps.length)throw {s:200,m:'Balasan kosong'};
+        AI.msgs.push({role:'model',parts:ps});
+        const tx=ps.filter(x=>x.text&&!x.thought).map(x=>x.text).join('\n').trim();
+        if(tx)aiAdd('a',tx);
+        const fc=ps.filter(x=>x.functionCall);
+        if(!fc.length)break;
+        acted=true;
+        const res=fc.map(x=>aiTool(x.functionCall.name,x.functionCall.args||{}));
+        AI.msgs.push({role:'user',parts:fc.map((x,k)=>({functionResponse:{name:x.functionCall.name,response:{result:res[k]}}}))});
+        // semua tool sukses: tidak perlu panggilan AI kedua hanya untuk merangkum (chip ✓ sudah menjelaskan)
+        if(res.every(r=>/^ok/.test(String(r)))){AI.msgs.push({role:'model',parts:[{text:tx||'Selesai.'}]});break}
+      }
     }
   }catch(e){
     if(!acted)AI.msgs.length=base;
     const m=String(e&&e.m||'');
-    aiAdd('a',/API key/i.test(m)||e&&(e.s===401||e.s===403)?'Key tidak valid':e&&e.s===429?'Terlalu sering, tunggu':(e instanceof TypeError||/fetch|network/i.test(String(e&&e.message)))?'Jaringan diblokir, buka di Chrome':e&&e.s?'Gagal ('+e.s+') '+m.slice(0,90):'Error: '+String(e&&e.name||'')+' '+String(e&&e.message||e).slice(0,90));
+    aiAdd('a',/API key/i.test(m)||e&&(e.s===401||e.s===403)?'Key tidak valid':e&&e.s===408?'Server terlalu lama membalas, coba kirim lagi':e&&e.s===429?'Terlalu sering, tunggu sebentar':(e instanceof TypeError||/fetch|network/i.test(String(e&&e.message)))?'Jaringan diblokir, buka di Chrome':e&&e.s?'Gagal ('+e.s+') '+m.slice(0,90):'Error: '+String(e&&e.name||'')+' '+String(e&&e.message||e).slice(0,90));
   }
   AI.msgs.forEach(m=>{if(m.role==='user'&&m.parts&&m.parts.some(p=>p.inlineData))m.parts=m.parts.filter(p=>!p.inlineData).concat([{text:'[gambar sudah diproses]'}])});   // gambar tidak dikirim ulang di giliran berikutnya
   AI.dots.remove();AI.dots=null;AI.busy=false;
 }
-
 function aiView(){
   const key=!!aiKey(),setting=!$('#aiKey').hidden;
   $('#aiBox').hidden=setting||!key;
@@ -2152,7 +2210,7 @@ async function aiPick(f){
   if(f.type&&!/^image\//.test(f.type)){aiAdd('a','Hanya gambar yang bisa dikirim ke asisten');return}
   const p=$('#aiPrev');p.hidden=false;p.textContent='Memproses gambar…';
   try{
-    const b=await compressImage(f,2400,.85),d=await readDataUrl(b);
+    const b=await compressImage(f,2000,.8),d=await readDataUrl(b);
     if(aiImg)URL.revokeObjectURL(aiImg.url);
     aiImg={data:d.split(',')[1],mime:'image/jpeg',url:URL.createObjectURL(b)};aiPrevSet();$('#aiI').focus();
   }catch(e){aiImg=null;aiPrevSet();aiAdd('a',String(e&&e.message||'Gambar gagal diproses'))}
