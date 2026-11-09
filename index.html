@@ -433,7 +433,12 @@ textarea::placeholder{color:var(--muted)}
 /* tabungan */
 .sv{margin-top:14px;padding-top:14px;border-top:1px solid var(--edge)}
 .sv:first-child{margin-top:0;padding-top:0;border-top:0}
-.sv .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.sv .row{align-items:flex-start}
+.sv .svt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;cursor:pointer}
+.sv .svt b{word-break:break-word}
+.sv .kebab{margin:-4px -6px 0 0}
+.sv .bar{margin:10px 0 0}
+.sv .pct{font-variant-numeric:tabular-nums}
 .bar i.done{background:var(--in)}
 .chip.tg.on{background:var(--accent);color:#fff}
 </style>
@@ -503,7 +508,7 @@ textarea::placeholder{color:var(--muted)}
     </div>
 
     <div class="card glass rise" id="sav-card">
-      <div class="row"><div><h2>Tabungan</h2><div class="muted" id="sav-sum"></div></div><button class="btn sm" id="sav-add" type="button">+ Target</button></div>
+      <div class="row"><div><h2>Tabungan</h2><div class="muted" id="sav-sum"></div></div><button class="btn sm" id="sav-add" type="button">+ Kantong</button></div>
       <div id="sav-list" style="margin-top:12px"></div>
     </div>
 
@@ -672,6 +677,22 @@ textarea::placeholder{color:var(--muted)}
       <button class="btn" id="mn-edit" type="button">Edit</button>
       <button class="btn danger" id="mn-del" type="button">Hapus</button>
       <button class="btn" id="mn-x" type="button">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- menu titik tiga tabungan -->
+<div class="sheet" id="svmenu" style="z-index:55">
+  <div class="glass blur">
+    <div class="grab"></div>
+    <h2 id="svm-title" style="margin-bottom:4px;word-break:break-word"></h2>
+    <div class="muted" id="svm-sub" style="margin-bottom:14px"></div>
+    <div class="menu">
+      <button class="btn" id="svm-dep" type="button">Setor</button>
+      <button class="btn" id="svm-wd" type="button">Tarik ke saldo utama</button>
+      <button class="btn" id="svm-edit" type="button">Ubah nama / target</button>
+      <button class="btn danger" id="svm-del" type="button">Hapus</button>
+      <button class="btn" id="svm-x" type="button">Batal</button>
     </div>
   </div>
 </div>
@@ -885,27 +906,43 @@ function renderSav(){
   list.forEach(g => {
     const d = document.createElement("div"); d.className = "sv";
     const r = document.createElement("div"); r.className = "row";
+    const t = document.createElement("div"); t.className = "svt";
     const a = document.createElement("b"); a.textContent = g.name;
-    const b = document.createElement("span"); b.className = "muted";
+    const b = document.createElement("span"); b.className = "muted pct";
     const pct = g.target ? Math.min(100, Math.floor(g.saved / g.target * 100)) : 0;
-    b.textContent = rp(g.saved) + (g.target ? " / " + rp(g.target) + " · " + pct + "%" : "");
-    r.append(a, b); d.appendChild(r);
+    b.textContent = rp(g.saved) + (g.target ? " dari " + rp(g.target) + " · " + pct + "%" : "");
+    t.append(a, b); t.addEventListener("click", () => openSvMenu(g.id));
+    r.append(t, kebab("Menu tabungan", () => openSvMenu(g.id))); d.appendChild(r);
     if (g.target){
       const bar = document.createElement("div"); bar.className = "bar";
       const i = document.createElement("i"); if (g.saved >= g.target) i.classList.add("done");
       bar.appendChild(i); d.appendChild(bar); grow(i, Math.min(1, g.saved / g.target));
     }
-    const acts = document.createElement("div"); acts.className = "acts";
-    const mk = (txt, fn, cls) => { const x = document.createElement("button"); x.type = "button"; x.className = "btn sm" + (cls ? " " + cls : ""); x.textContent = txt; x.addEventListener("click", () => fn(x)); acts.appendChild(x); };
-    mk("Setor", () => openSav("dep", g.id));
-    mk("Tarik", () => openSav("wd", g.id));
-    mk("Hapus", x => {
-      if (!x.classList.contains("armed")){ x.classList.add("armed"); x.textContent = "Yakin?"; setTimeout(() => { x.classList.remove("armed"); x.textContent = "Hapus"; }, 2500); return; }
-      state.savings = savs().filter(z => z.id !== g.id); save(); flushNow(); buzz(); renderSav(); toast("Tabungan dihapus");
-    }, "danger");
-    d.appendChild(acts); box.appendChild(d);
+    box.appendChild(d);
   });
 }
+/* menu titik tiga tabungan */
+const svMenu = $("svmenu");
+function closeSvMenu(){ svMenu.classList.remove("show"); }
+function openSvMenu(id){
+  const g = savs().find(z => z.id === id); if (!g) return;
+  $("svm-title").textContent = g.name;
+  $("svm-sub").textContent = rp(g.saved) + (g.target ? " dari " + rp(g.target) : "");
+  const del = $("svm-del"); del.textContent = "Hapus"; del.classList.remove("armed");
+  const at = Date.now(), ok = () => Date.now() - at > 300;
+  const go = fn => e => { e.preventDefault(); e.stopPropagation(); if (!ok()) return; closeSvMenu(); setTimeout(fn, 60); };
+  $("svm-dep").onclick = go(() => openSav("dep", id));
+  $("svm-wd").onclick = go(() => openSav("wd", id));
+  $("svm-edit").onclick = go(() => openSav("edit", id));
+  del.onclick = e => {
+    e.preventDefault(); e.stopPropagation(); if (!ok()) return;
+    if (!del.classList.contains("armed")){ del.classList.add("armed"); del.textContent = g.saved > 0 ? "Ketuk lagi (isi " + rp(g.saved) + " ikut hilang)" : "Ketuk lagi untuk menghapus"; return; }
+    closeSvMenu(); state.savings = savs().filter(z => z.id !== id); save(); flushNow(); buzz(); renderSav(); toast("Tabungan dihapus");
+  };
+  buzz(); svMenu.classList.add("show");
+}
+$("svm-x").addEventListener("click", closeSvMenu);
+svMenu.addEventListener("click", e => { if (e.target === svMenu) closeSvMenu(); });
 let svMode = "new", svId = null, svLink = false;
 const svSheet = $("sheetS");
 const svShow = (id, on) => { $(id).style.display = on ? "" : "none"; };
@@ -916,11 +953,13 @@ function svSetDir(dir){
 function openSav(mode, id){
   svId = id || null; svLink = true; $("sv-link").classList.add("on");   // default: ikut saldo utama
   ["sv-name", "sv-target", "sv-amt"].forEach(k => $(k).value = "");
-  const isNew = mode === "new", g = savs().find(z => z.id === id);
-  svShow("sv-seg", !isNew); svShow("sv-nl", isNew); svShow("sv-tl", isNew);
-  $("sv-title").textContent = isNew ? "Target tabungan" : g ? g.name : "Tabungan";
+  const isNew = mode === "new", isEdit = mode === "edit", g = savs().find(z => z.id === id);
+  svShow("sv-seg", !isNew && !isEdit); svShow("sv-nl", isNew || isEdit); svShow("sv-tl", isNew || isEdit);
+  $("sv-amt").closest("label").style.display = isEdit ? "none" : ""; svShow("sv-link", !isEdit);
+  $("sv-title").textContent = isNew ? "Kantong tabungan baru" : isEdit ? "Ubah tabungan" : g ? g.name : "Tabungan";
   $("sv-al").textContent = isNew ? "Setoran awal" : "Jumlah";
-  svSetDir(isNew ? "new" : mode);
+  if (isEdit && g){ $("sv-name").value = g.name; $("sv-target").value = g.target ? Number(g.target).toLocaleString("id-ID") : ""; }
+  svSetDir(isNew || isEdit ? mode : mode);
   buzz(); svSheet.classList.add("show");
 }
 function closeSav(){ svSheet.classList.remove("show"); }
@@ -955,6 +994,13 @@ function svCreate(name,target,amt,link,dt){
 }
 function saveSav(){
   const amt = num($("sv-amt"));
+  if (svMode === "edit"){
+    const g = savs().find(z => z.id === svId); if (!g) return closeSav();
+    const name = $("sv-name").value.trim();
+    if (!name){ svShake("sv-name"); toast("Isi nama dulu"); return; }
+    g.name = name; g.target = num($("sv-target"));
+    save(); flushNow(); buzz(); closeSav(); renderAll(); toast("Tabungan diubah"); return;
+  }
   if (svMode === "new"){
     const name = $("sv-name").value.trim();
     if (!name){ svShake("sv-name"); toast("Isi nama dulu"); return; }
@@ -974,7 +1020,7 @@ $("sav-add").addEventListener("click", () => openSav("new"));
 $("sv-x").addEventListener("click", closeSav);
 $("sv-save").addEventListener("click", saveSav);
 $("sv-link").addEventListener("click", () => { svLink = !svLink; $("sv-link").classList.toggle("on", svLink); buzz(); });
-$("sv-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (b && svMode !== "new"){ svSetDir(b.dataset.d); buzz(); } });
+$("sv-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (b && svMode !== "new" && svMode !== "edit"){ svSetDir(b.dataset.d); buzz(); } });
 svSheet.addEventListener("click", e => { if (e.target === svSheet) closeSav(); });
 addEventListener("keydown", e => { if (e.key === "Escape") closeSav(); });
 ["sv-name", "sv-amt"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") saveSav(); }));
