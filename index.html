@@ -1814,7 +1814,7 @@ function mgAi(){
 }
 
 /* ----- Asisten AI (data Manager) ----- */
-const AI_MODELS=['gemini-flash-latest','gemini-2.5-flash','gemini-flash-lite-latest'],AI_KEY='zn_gkey';
+const AI_MODELS=['gemini-2.5-flash','gemini-flash-lite-latest','gemini-flash-latest'],AI_KEY='zn_gkey';
 const AI={msgs:[],busy:false,dots:null,model:''};
 let aiMem='';
 const aiKey=()=>{try{return localStorage.getItem(AI_KEY)||aiMem}catch(e){return aiMem}};
@@ -2058,23 +2058,31 @@ function aiTrim(){
   while(AI.msgs.length>24){AI.msgs.shift();while(AI.msgs.length&&!(AI.msgs[0].role==='user'&&AI.msgs[0].parts[0]&&AI.msgs[0].parts[0].text!==undefined))AI.msgs.shift()}
 }
 async function aiCall(obj,tb){
-  if(tb===undefined)tb=256;
+  if(tb===undefined)tb=0;   // tanpa "thinking": jauh lebih cepat untuk perintah catat/jadwal/tugas
+  const models=AI.model?[AI.model].concat(AI_MODELS.filter(x=>x!==AI.model)):AI_MODELS;
+  const t0=Date.now();
   let last={s:404,m:'Model tidak ditemukan'};
-  for(const m of (AI.model?[AI.model]:AI_MODELS)){
+  for(const m of models){
     for(const th of [true,false]){
-      const gc=Object.assign({temperature:.2},obj.generationConfig||{},th?{thinkingConfig:{thinkingBudget:tb}}:{});
+      if(Date.now()-t0>75000)throw {s:408,m:'Terlalu lama'};
+      const gc=Object.assign({temperature:.2,maxOutputTokens:2048},obj.generationConfig||{},th?{thinkingConfig:{thinkingBudget:tb}}:{});
       const body=JSON.stringify({...obj,generationConfig:gc});
-      const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),45000);
+      const lim=body.indexOf('"inlineData"')>-1?35000:20000;   // batas per percobaan; kalau lewat, coba model lain
+      const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),lim);
       let r;
       try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':aiKey()},body,signal:ac.signal})}
-      catch(e){clearTimeout(tm);if(e&&e.name==='AbortError')throw {s:408,m:'Terlalu lama'};throw e}
+      catch(e){
+        clearTimeout(tm);
+        if(e&&e.name==='AbortError'){last={s:408,m:'Terlalu lama'};if(m===AI.model)AI.model='';break}
+        throw e;
+      }
       clearTimeout(tm);
       if(r.ok){AI.model=m;return r.json()}
       const j=await r.json().catch(()=>null);last={s:r.status,m:(j&&j.error&&j.error.message)||''};
       if(r.status===400&&th&&!/API key/i.test(last.m))continue;
       break;
     }
-    if(![404,429,500,503].includes(last.s)&&!(last.s===400&&!/API key/i.test(last.m)))throw last;
+    if(![404,408,429,500,503].includes(last.s)&&!(last.s===400&&!/API key/i.test(last.m)))throw last;
   }
   throw last;
 }
@@ -2098,7 +2106,7 @@ function aiReceiptPrompt(user){
   '- Kalau gambar bukan soal uang: jenis_gambar lain dan transaksi kosong.'+(user?'\nPesan dari user (utamakan): '+user:'');
 }
 async function aiReceipt(user,img){
-  const d=await aiCall({contents:[{role:'user',parts:[{text:aiReceiptPrompt(user)},{inlineData:{mimeType:img.mime,data:img.data}}]}],generationConfig:{temperature:0,responseMimeType:'application/json',responseSchema:AI_RSCHEMA}},512);
+  const d=await aiCall({contents:[{role:'user',parts:[{text:aiReceiptPrompt(user)},{inlineData:{mimeType:img.mime,data:img.data}}]}],generationConfig:{temperature:0,responseMimeType:'application/json',responseSchema:AI_RSCHEMA}},0);
   const c=d.candidates&&d.candidates[0],raw=((c&&c.content&&c.content.parts)||[]).filter(x=>x.text&&!x.thought).map(x=>x.text).join('');
   let j;try{j=JSON.parse(raw)}catch(e){return ''}
   if(!j||j.jenis_gambar==='lain')return '';
@@ -2210,7 +2218,7 @@ async function aiPick(f){
   if(f.type&&!/^image\//.test(f.type)){aiAdd('a','Hanya gambar yang bisa dikirim ke asisten');return}
   const p=$('#aiPrev');p.hidden=false;p.textContent='Memproses gambar…';
   try{
-    const b=await compressImage(f,2000,.8),d=await readDataUrl(b);
+    const b=await compressImage(f,1400,.72),d=await readDataUrl(b);
     if(aiImg)URL.revokeObjectURL(aiImg.url);
     aiImg={data:d.split(',')[1],mime:'image/jpeg',url:URL.createObjectURL(b)};aiPrevSet();$('#aiI').focus();
   }catch(e){aiImg=null;aiPrevSet();aiAdd('a',String(e&&e.message||'Gambar gagal diproses'))}
