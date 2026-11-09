@@ -933,20 +933,20 @@ function svMatch(a){
   const ex=L.filter(z=>String(z.name).toLowerCase()===n);if(ex.length)return ex;
   return L.filter(z=>{const t=String(z.name).toLowerCase();return t.includes(n)||n.includes(t)});
 }
-function svLog(g,kind,amt){
+function svLog(g,kind,amt,dt){
   if(!Array.isArray(g.hist))g.hist=[];
-  g.hist.push({d:today(),k:kind,a:amt});
+  g.hist.push({d:dt||today(),k:kind,a:amt});
   if(g.hist.length>200)g.hist=g.hist.slice(-200);
 }
-function svMove(g,mode,amt,link){
-  g.saved=(Number(g.saved)||0)+(mode==="dep"?amt:-amt);svLog(g,mode,amt);
-  if(link)state.tx.push({id:svUid(),type:mode==="dep"?"out":"in",amt,cat:"Tabungan",note:(mode==="dep"?"Setor ":"Tarik ")+g.name,date:today()});
+function svMove(g,mode,amt,link,dt){
+  g.saved=(Number(g.saved)||0)+(mode==="dep"?amt:-amt);svLog(g,mode,amt,dt);
+  if(link)state.tx.push({id:svUid(),type:mode==="dep"?"out":"in",amt,cat:"Tabungan",note:(mode==="dep"?"Setor ":"Tarik ")+g.name,date:dt||today()});
 }
-function svCreate(name,target,amt,link){
+function svCreate(name,target,amt,link,dt){
   const g={id:svUid(),name,target:target||0,saved:amt||0,hist:[]};
-  if(amt)svLog(g,"init",amt);
+  if(amt)svLog(g,"init",amt,dt);
   savs().push(g);
-  if(amt&&link)state.tx.push({id:svUid(),type:"out",amt,cat:"Tabungan",note:"Setor "+name,date:today()});
+  if(amt&&link)state.tx.push({id:svUid(),type:"out",amt,cat:"Tabungan",note:"Setor "+name,date:dt||today()});
   return g;
 }
 function saveSav(){
@@ -1951,7 +1951,11 @@ function mgAi(){
 const AI_MODELS=['gemini-flash-lite-latest','gemini-2.5-flash','gemini-flash-latest'],AI_MODELS_IMG=['gemini-2.5-flash','gemini-flash-lite-latest','gemini-flash-latest'],AI_KEY='zn_gkey';
 const AI={msgs:[],busy:false,dots:null,model:''};
 let aiMem='';
-const aiKey=()=>{try{return localStorage.getItem(AI_KEY)||aiMem||''}catch(e){return aiMem||''}};
+const aiKey=()=>{try{return (localStorage.getItem(AI_KEY)||aiMem||'').trim()}catch(e){return (aiMem||'').trim()}};
+/* key "AIza..." = Google AI Studio; key "AQ...." = Vertex AI (express mode) -> endpoint berbeda */
+const aiVertex=()=>!/^AIza/.test(aiKey());
+const AI_V_MODELS=['gemini-2.5-flash-lite','gemini-2.5-flash','gemini-2.0-flash'],AI_V_IMG=['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash'];
+const aiUrl=m=>(aiVertex()?'https://aiplatform.googleapis.com/v1/publishers/google/models/':'https://generativelanguage.googleapis.com/v1beta/models/')+m+':generateContent?key='+encodeURIComponent(aiKey());
 const AI_TOOLS=[{functionDeclarations:[
  {name:'add_tx',description:'Catat SATU transaksi uang (pemasukan atau pengeluaran) dari perintah teks. Bukan untuk jadwal atau tugas',parameters:{type:'OBJECT',properties:{jenis:{type:'STRING',enum:['masuk','keluar']},jumlah:{type:'NUMBER',description:'Rupiah utuh, tanpa titik'},kategori:{type:'STRING',description:'Bebas. Contoh: Makan, Transport, Belanja, Tagihan, Hiburan, Kesehatan, Gaji, Bonus, Hadiah, Lainnya'},catatan:{type:'STRING'},tanggal:{type:'STRING',description:'YYYY-MM-DD, kosong = hari ini'}},required:['jenis','jumlah']}},
  {name:'add_tx_banyak',description:'Catat satu atau banyak transaksi sekaligus dari GAMBAR (struk, screenshot riwayat belanja, mutasi, bukti transfer). Otomatis melewati transaksi yang sudah tercatat (tanggal, jenis, jumlah, catatan sama)',parameters:{type:'OBJECT',properties:{items:{type:'ARRAY',items:{type:'OBJECT',properties:{jenis:{type:'STRING',enum:['masuk','keluar']},jumlah:{type:'NUMBER',description:'Rupiah utuh, tanpa titik'},kategori:{type:'STRING'},catatan:{type:'STRING',description:'Nama toko + item utama, ringkas'},tanggal:{type:'STRING',description:'YYYY-MM-DD, kosong = hari ini'}},required:['jenis','jumlah']}}},required:['items']}},
@@ -1975,6 +1979,21 @@ const AI_TOOLS=[{functionDeclarations:[
  {name:'set_theme',description:'Ganti tema tampilan app',parameters:{type:'OBJECT',properties:{mode:{type:'STRING',enum:['terang','gelap']}},required:['mode']}},
  {name:'open_tab',description:'Buka halaman app: home, keuangan, jadwal, profil',parameters:{type:'OBJECT',properties:{tab:{type:'STRING',enum:['home','keuangan','jadwal','profil']}},required:['tab']}}
 ]}];
+/* ----- tabungan: akses penuh untuk AI ----- */
+const svDate=v=>{v=String(v==null?'':v).trim();return /^\d{4}-\d{2}-\d{2}$/.test(v)?v:undefined};
+const svKind=k=>k==='wd'?'tarik':k==='init'?'setoran awal':k==='adj'?'koreksi saldo':'setor';
+const svEff=h=>h.k==='wd'?-(Number(h.a)||0):(Number(h.a)||0);   // dep, init = tambah; adj = selisih bertanda
+(function(){
+  const fd=AI_TOOLS[0].functionDeclarations,SID={id:{type:'STRING'},nama:{type:'STRING'}};
+  ['add_savings','deposit_savings','withdraw_savings'].forEach(n=>{const t=fd.find(x=>x.name===n);if(t)t.parameters.properties.tanggal={type:'STRING',description:'YYYY-MM-DD, opsional, default hari ini'}});
+  fd.push(
+   {name:'get_savings_history',description:'Lihat SELURUH riwayat satu tabungan (nomor, tanggal, jenis, jumlah). Pakai sebelum mengubah atau menghapus riwayat',parameters:{type:'OBJECT',properties:{...SID}}},
+   {name:'set_savings_balance',description:'KOREKSI saldo satu tabungan langsung ke angka tertentu (tercatat sebagai koreksi saldo di riwayat)',parameters:{type:'OBJECT',properties:{...SID,saldo:{type:'NUMBER',description:'Saldo baru, rupiah utuh'},tanggal:{type:'STRING'}},required:['saldo']}},
+   {name:'transfer_savings',description:'PINDAHKAN uang dari satu tabungan ke tabungan lain',parameters:{type:'OBJECT',properties:{dari:{type:'STRING',description:'nama tabungan asal'},dari_id:{type:'STRING'},ke:{type:'STRING',description:'nama tabungan tujuan'},ke_id:{type:'STRING'},jumlah:{type:'NUMBER'},tanggal:{type:'STRING'}},required:['jumlah']}},
+   {name:'edit_savings_entry',description:'Ubah jumlah atau tanggal satu entri riwayat tabungan (no dari riwayat). Saldo tabungan ikut dihitung ulang',parameters:{type:'OBJECT',properties:{...SID,no:{type:'INTEGER'},jumlah:{type:'NUMBER'},tanggal:{type:'STRING'}},required:['no']}},
+   {name:'delete_savings_entry',description:'Hapus satu entri riwayat tabungan (no dari riwayat). Efeknya ke saldo dibatalkan. hapus_transaksi_terkait=true juga menghapus transaksi keuangannya',parameters:{type:'OBJECT',properties:{...SID,no:{type:'INTEGER'},hapus_transaksi_terkait:{type:'BOOLEAN'}},required:['no']}}
+  );
+})();
 function aiData(){
   const m=state.tx.filter(inMonth),t0=iso(new Date()),j=i=>({id:i.id,teks:i.text,jam:i.time||''});
   const ag=off=>{const d=new Date();d.setDate(d.getDate()+off);const key=iso(d);return (state.sched[(d.getDay()+6)%7]||[]).filter(it=>it.date?it.date===key:(!it.until||it.until>=key)).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99')).map(j)};
@@ -1983,7 +2002,7 @@ function aiData(){
     hari_ini:t0,hari_ini_nama:DAYS[todayIdx()],kalender:Array.from({length:21},(_,i)=>{const d=new Date();d.setDate(d.getDate()+i);return DAYS[(d.getDay()+6)%7]+' '+iso(d)+(i===0?' (hari ini)':i===1?' (besok)':i===2?' (lusa)':'')}),
     saldo:sum(state.tx,'in')-sum(state.tx,'out'),masuk_bulan_ini:sum(m,'in'),keluar_bulan_ini:sum(m,'out'),jumlah_semua_transaksi:state.tx.length,
     total_tabungan:savs().reduce((t,g)=>t+(Number(g.saved)||0),0),
-    tabungan:savs().map(g=>{const sv=Number(g.saved)||0,tg=Number(g.target)||0;return{id:g.id,nama:g.name,terkumpul:sv,target:tg,persen:tg?Math.floor(sv/tg*100):null,kurang:tg?Math.max(0,tg-sv):null,riwayat_terakhir:(g.hist||[]).slice(-6).map(h=>h.d+' '+(h.k==='wd'?'tarik':h.k==='init'?'setoran awal':'setor')+' '+h.a)}}),
+    tabungan:savs().map(g=>{const sv=Number(g.saved)||0,tg=Number(g.target)||0;return{id:g.id,nama:g.name,terkumpul:sv,target:tg,persen:tg?Math.floor(sv/tg*100):null,kurang:tg?Math.max(0,tg-sv):null,riwayat_terakhir:(g.hist||[]).map((h,i)=>'no '+(i+1)+': '+h.d+' '+svKind(h.k)+' '+h.a).slice(-10)}}),
     transaksi_terbaru:[...state.tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))||(Number(b.id)||0)-(Number(a.id)||0)).slice(0,40).map(x=>({id:x.id,tgl:x.date,jenis:x.type==='in'?'masuk':'keluar',jumlah:x.amt,kategori:x.cat||'',catatan:x.note||''})),
     jadwal:DAYS.map((n,d)=>({hari:n,kegiatan:(state.sched[d]||[]).filter(it=>!it.taskId).map(it=>({id:it.id,teks:it.text,jam:it.time||'',tipe:it.date?'sekali':'tiap minggu',tanggal:it.date||'',sampai:it.until||'permanen'}))})),
     jadwal_hari_ini:ag(0),jadwal_besok:ag(1),
@@ -1998,7 +2017,7 @@ LANGKAH 1 - TENTUKAN JENIS DATA (sebelum memilih tool)
 - JADWAL → add_schedule. Pemicu: kata jadwal, kegiatan, acara, agenda, atau sesuatu yang TERJADI pada hari/jam tertentu: ujian, kuliah, kelas, rapat, meeting, janji, les, latihan, olahraga, ibadah, sidang, wawancara, tes, pertandingan, ulang tahun, shift kerja.
 - TUGAS → add_task. Pemicu: kata tugas, PR, to do, deadline, kumpulkan, kerjakan, selesaikan, revisi, atau pekerjaan yang bisa ditandai selesai.
 - KEUANGAN → add_tx atau add_tx_banyak. Pemicu: beli, bayar, jajan, gaji, transfer, tagihan, nominal (Rp, rb, k, jt).
-- TABUNGAN → add_savings, deposit_savings, withdraw_savings, edit_savings, delete_savings. Pemicu: tabung, nabung, tabungan, celengan, setor ke, tarik dari tabungan, target tabungan. JANGAN pakai add_tx untuk ini.
+- TABUNGAN → add_savings, deposit_savings, withdraw_savings, transfer_savings, set_savings_balance, edit_savings, delete_savings, get_savings_history, edit_savings_entry, delete_savings_entry. Kamu punya AKSES PENUH ke tabungan: lihat, buat, setor, tarik, pindah antar tabungan, koreksi saldo, ubah nama/target, ubah atau hapus riwayat, hapus tabungan. Pemicu: tabung, nabung, tabungan, celengan, setor ke, tarik dari tabungan, target tabungan. JANGAN pakai add_tx untuk ini.
 - Kata "jadwal" TIDAK PERNAH menjadi tugas. "Tambahin jadwal hari Rabu kegiatan ujian" = add_schedule teks "Ujian" di hari Rabu. BUKAN add_task. Hanya "belajar untuk ujian", "PR", atau "tugas" yang menjadi tugas.
 - Satu pesan bisa berisi beberapa hal, mis. "jadwal ujian rabu, dan tugas matematika deadline jumat": kerjakan keduanya dengan tool masing-masing.
 
@@ -2029,6 +2048,9 @@ TABUNGAN
 - catat_keuangan default false (sama seperti di app). Isi true hanya jika user bilang dipotong dari saldo, catat di keuangan, atau serupa. Dengan true, setor tercatat sebagai pengeluaran dan tarik sebagai pemasukan (kategori Tabungan).
 - Tarik tidak boleh melebihi isi tabungan; kalau melebihi, sebut isi tabungannya. Kalau nama cocok ke lebih dari satu tabungan, tanya satu kalimat. delete_savings dan reset_data hanya jika user jelas memintanya.
 - Laporkan singkat: nama tabungan, jumlah, dan saldo terbaru (plus progres jika ada target).
+- "Pindahin 100rb dari Laptop ke Liburan" = transfer_savings. "Saldo tabungan Laptop harusnya 750rb" = set_savings_balance. Tanggal selain hari ini (mis. "kemarin", "tgl 3") isi lewat tanggal (YYYY-MM-DD dari tabel kalender).
+- Mau ubah atau hapus riwayat: panggil get_savings_history dulu untuk dapat nomor entri, lalu edit_savings_entry atau delete_savings_entry. Saldo otomatis dihitung ulang. Riwayat yang ditanya lengkap ("semua riwayat tabungan X") juga lewat get_savings_history.
+- Transaksi keuangan bertanda kategori Tabungan bisa dicari lewat find_tx (kategori Tabungan).
 
 GAMBAR (user mengirim foto atau screenshot)
 - Baca isi gambar dan teks user bersama-sama. Kalau teks user berbeda dari tebakanmu, ikuti teks user.
@@ -2193,7 +2215,7 @@ function aiTool2(name,a){
     const nm=aiStr(a.nama);if(!nm)return 'nama kosong';
     const tg=a.target===undefined?0:Math.abs(Number(a.target))||0,amt=a.setoran_awal===undefined?0:Math.abs(Number(a.setoran_awal))||0;
     if(savs().some(z=>String(z.name).toLowerCase()===nm.toLowerCase()))return 'sudah ada tabungan bernama itu; pakai deposit_savings';
-    const g=svCreate(nm,tg,amt,!!a.catat_keuangan);aiRefresh();
+    const g=svCreate(nm,tg,amt,!!a.catat_keuangan,svDate(a.tanggal));aiRefresh();
     say('Tabungan: '+nm+(tg?' · target '+rp(tg):'')+(amt?' · setor '+rp(amt):''));return 'ok, id='+g.id;
   }
   if(name==='deposit_savings'||name==='withdraw_savings'){
@@ -2202,7 +2224,7 @@ function aiTool2(name,a){
     if(m.length>1)return 'ambigu, pilih salah satu: '+m.map(z=>z.name+' (id '+z.id+')').join(', ');
     const g=m[0];
     if(!dep&&amt>(Number(g.saved)||0))return 'melebihi tabungan '+g.name+' (isi '+rp(g.saved)+')';
-    svMove(g,dep?'dep':'wd',amt,!!a.catat_keuangan);aiRefresh();
+    svMove(g,dep?'dep':'wd',amt,!!a.catat_keuangan,svDate(a.tanggal));aiRefresh();
     say((dep?'Setor ':'Tarik ')+rp(amt)+' · '+g.name+' → '+rp(g.saved));return 'ok, saldo '+g.name+' sekarang '+g.saved;
   }
   if(name==='edit_savings'){
@@ -2218,6 +2240,39 @@ function aiTool2(name,a){
     if(!hit.length&&aiStr(a.nama)){const m=svMatch({nama:a.nama});if(m.length===1)hit=m;else if(m.length>1)return 'ambigu, pilih salah satu: '+m.map(z=>z.name+' (id '+z.id+')').join(', ')}
     if(!hit.length)return 'tabungan tidak ditemukan';
     state.savings=savs().filter(z=>!hit.includes(z));aiRefresh();say(hit.length+' tabungan dihapus');return 'ok, '+hit.length+' dihapus';
+  }
+  if(name==='get_savings_history'||name==='set_savings_balance'||name==='transfer_savings'||name==='edit_savings_entry'||name==='delete_savings_entry'){
+    const amb=L=>'ambigu, pilih salah satu: '+L.map(z=>z.name+' (id '+z.id+')').join(', ');
+    if(name==='transfer_savings'){
+      const amt=Math.abs(Number(a.jumlah));if(!amt)return 'jumlah tidak valid';
+      const A=svMatch({id:a.dari_id,nama:a.dari}),B=svMatch({id:a.ke_id,nama:a.ke});
+      if(!A.length)return 'tabungan asal tidak ditemukan';if(!B.length)return 'tabungan tujuan tidak ditemukan';
+      if(A.length>1)return amb(A);if(B.length>1)return amb(B);
+      const f=A[0],t=B[0];if(f===t)return 'asal dan tujuan sama';
+      if(amt>(Number(f.saved)||0))return 'melebihi tabungan '+f.name+' (isi '+rp(f.saved)+')';
+      const dt=svDate(a.tanggal);svMove(f,'wd',amt,false,dt);svMove(t,'dep',amt,false,dt);aiRefresh();
+      say('Pindah '+rp(amt)+' · '+f.name+' → '+t.name);return 'ok, '+f.name+' '+f.saved+', '+t.name+' '+t.saved;
+    }
+    const m=svMatch(a);if(!m.length)return 'tabungan tidak ditemukan';if(m.length>1)return amb(m);
+    const g=m[0];if(!Array.isArray(g.hist))g.hist=[];
+    if(name==='get_savings_history')return JSON.stringify({id:g.id,nama:g.name,terkumpul:g.saved,target:g.target||0,riwayat:g.hist.map((h,i)=>({no:i+1,tgl:h.d,jenis:svKind(h.k),jumlah:h.a}))});
+    if(name==='set_savings_balance'){
+      const nv=Number(a.saldo);if(a.saldo===undefined||a.saldo===null||isNaN(nv)||nv<0)return 'saldo tidak valid';
+      const diff=nv-(Number(g.saved)||0);if(!diff)return 'ok, saldo '+g.name+' sudah '+g.saved;
+      g.saved=nv;svLog(g,'adj',diff,svDate(a.tanggal));aiRefresh();say('Saldo '+g.name+' → '+rp(nv));return 'ok, saldo '+g.name+' sekarang '+g.saved;
+    }
+    const i=Math.floor(Number(a.no))-1;if(!(i>=0&&i<g.hist.length))return 'nomor riwayat tidak valid; panggil get_savings_history dulu';
+    const h=g.hist[i];
+    if(name==='delete_savings_entry'){
+      const ns=(Number(g.saved)||0)-svEff(h);if(ns<0)return 'tidak bisa dihapus: saldo akan minus';
+      if(a.hapus_transaksi_terkait){const k=state.tx.findIndex(x=>x.cat==='Tabungan'&&x.date===h.d&&Number(x.amt)===Number(h.a)&&String(x.note||'').endsWith(g.name)&&(h.k==='wd'?x.type==='in':x.type==='out'));if(k>-1)state.tx.splice(k,1)}
+      g.saved=ns;g.hist.splice(i,1);aiRefresh();say('Riwayat '+g.name+' no '+(i+1)+' dihapus');return 'ok, saldo '+g.name+' sekarang '+g.saved;
+    }
+    let amt=h.a,dt=h.d;
+    if(a.jumlah!==undefined){const v=Number(a.jumlah);if(isNaN(v)||(h.k!=='adj'&&v<=0))return 'jumlah tidak valid';amt=h.k==='adj'?v:Math.abs(v)}
+    if(a.tanggal!==undefined){const d=svDate(a.tanggal);if(!d)return 'tanggal tidak valid';dt=d}
+    const ns=(Number(g.saved)||0)-svEff(h)+svEff({k:h.k,a:amt});if(ns<0)return 'tidak bisa: saldo akan minus';
+    g.saved=ns;h.a=amt;h.d=dt;aiRefresh();say('Riwayat '+g.name+' no '+(i+1)+' diubah');return 'ok, saldo '+g.name+' sekarang '+g.saved;
   }
   /* ----- file & reset ----- */
   if(name==='delete_media'){
@@ -2244,7 +2299,7 @@ async function aiTry(m,obj,tb,lim,ctl){
     const gc=Object.assign({temperature:.2,maxOutputTokens:2048},obj.generationConfig||{},th?{thinkingConfig:{thinkingBudget:tb}}:{});
     const tm=setTimeout(()=>ctl.abort(),lim);
     let r;
-    try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':aiKey()},body:JSON.stringify({...obj,generationConfig:gc}),signal:ctl.signal})}
+    try{r=await fetch(aiUrl(m),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...obj,generationConfig:gc}),signal:ctl.signal})}
     catch(e){clearTimeout(tm);if(e&&e.name==='AbortError')throw {s:408,m:'Terlalu lama'};throw e}
     clearTimeout(tm);
     if(r.ok)return {m,d:await r.json()};
@@ -2257,7 +2312,7 @@ async function aiTry(m,obj,tb,lim,ctl){
 function aiCall(obj,tb){
   if(tb===undefined)tb=0;   // tanpa "thinking" = jauh lebih cepat
   const img=JSON.stringify(obj).indexOf('"inlineData"')>-1;
-  const base=img?AI_MODELS_IMG:AI_MODELS;
+  const base=aiVertex()?(img?AI_V_IMG:AI_V_MODELS):(img?AI_MODELS_IMG:AI_MODELS);
   const list=!img&&AI.model?[AI.model].concat(base.filter(x=>x!==AI.model)):base;
   const lim=img?35000:15000,hedge=img?7000:2500;
   return new Promise((resolve,reject)=>{
