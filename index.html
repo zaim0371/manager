@@ -179,9 +179,10 @@ li.tx.new{animation:pop .55s var(--spring)}
 .car::-webkit-scrollbar{display:none}
 .slide{flex:0 0 100%;scroll-snap-align:center;scroll-snap-stop:always;position:relative;background:var(--field);overflow:hidden}
 .slide.add{border:2px dashed var(--edge);font:inherit;font-weight:600;color:var(--muted);display:grid;place-items:center;align-content:center;gap:8px;cursor:pointer}
-.slide img{width:100%;height:100%;object-fit:cover;display:block}
+.slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
 .pdf{position:absolute;inset:0;display:grid;place-items:center;background:var(--field)}
-.pdf canvas{width:100%;height:100%;object-fit:contain;background:#fff}
+.pdf canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:transparent}
+@media (min-width:600px){.car,.drop{aspect-ratio:16/9}}
 .pdfic{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;font-weight:800;color:#fff;background:var(--out)}
 .x{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;font-size:.95rem;transition:transform .3s var(--spring)}
 .x:active{transform:scale(.85)}
@@ -371,8 +372,8 @@ li.sc .sv{overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .pvback:active{transform:scale(.93)}
 .pvback svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
 .pvbody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 8px calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:10px}
-.pvbody canvas{display:block;max-width:100%;height:auto;background:#fff;border-radius:6px;box-shadow:0 4px 16px var(--shadow)}
-.pvbody img{display:block;max-width:100%;margin:auto;border-radius:8px;box-shadow:0 4px 16px var(--shadow);-webkit-touch-callout:default}
+.pvbody canvas{display:block;flex:none;max-width:100%;height:auto;background:#fff;border-radius:6px;box-shadow:0 4px 16px var(--shadow)}
+.pvbody img{display:block;flex:none;max-width:100%;height:auto;margin:auto;border-radius:8px;box-shadow:0 4px 16px var(--shadow);-webkit-touch-callout:default}
 .pvbody iframe{flex:1;width:100%;border:0;border-radius:12px;background:#fff}
 .pvmsg{margin:auto;color:var(--muted);font-weight:600;text-align:center;padding:24px}
 :root[data-theme="light"]{
@@ -424,6 +425,11 @@ textarea::placeholder{color:var(--muted)}
 .asg{display:flex;flex-wrap:wrap;gap:8px}
 .addrow .att{background:var(--field);border:1px solid var(--edge);color:var(--ink);display:grid;place-items:center;padding:0}
 .addrow .att svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.addrow .mic{background:var(--field);border:1px solid var(--edge);color:var(--ink);display:grid;place-items:center;padding:0}
+.addrow .mic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.addrow .mic.on{background:#e5484d;border-color:#e5484d;color:#fff;animation:micPulse 1.2s ease-out infinite}
+@keyframes micPulse{0%{box-shadow:0 0 0 0 rgba(229,72,77,.5)}100%{box-shadow:0 0 0 14px rgba(229,72,77,0)}}
+@media (prefers-reduced-motion:reduce){.addrow .mic.on{animation:none}}
 .aiprev{display:flex;align-items:center;gap:10px;margin-top:8px;padding:6px 8px;border-radius:16px;background:var(--field);border:1px solid var(--edge);font-size:.8rem}
 .aiprev img{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none}
 .aiprev span{flex:1}
@@ -2549,12 +2555,12 @@ function aiOpen(){
   $('#aiKey').hidden=true;aiView();aiSuggest();
   setTimeout(()=>{const f=aiKey()?$('#aiI'):$('#aiKi');f.focus()},350);
 }
-function aiClose(){ai.classList.remove('show');if(document.activeElement)document.activeElement.blur()}
+function aiClose(){if(typeof aiVoiceStop==='function')aiVoiceStop();ai.classList.remove('show');if(document.activeElement)document.activeElement.blur()}
 const fab=document.createElement('button');fab.type='button';fab.id='aiFab';fab.className='fab l';fab.setAttribute('aria-label','Asisten');
 fab.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>';
 document.body.append(fab);
 const ai=document.createElement('div');ai.className='sheet';ai.id='ai';ai.style.zIndex=40;
-ai.innerHTML='<div class="glass blur"><div class="grab"></div><div class="row" style="margin-bottom:12px"><h2>Asisten</h2><span style="display:flex;gap:8px"><button class="btn sm" id="aiGear" type="button" aria-label="Key">⚙</button><button class="btn sm" id="aiX" type="button">Tutup</button></span></div><div id="aiKey" class="aikey" hidden><input id="aiKi" type="password" placeholder="API key" autocomplete="off"><button class="btn pri sm" type="button" id="aiSave">Simpan</button><button class="btn sm" type="button" id="aiDel" hidden>Hapus</button></div><div id="aiBox"><div id="aim"></div><input type="file" id="aiFile" accept="image/*" hidden><div class="aiprev" id="aiPrev" hidden></div><div class="addrow" id="aiF"><button type="button" class="att" id="aiAtt" aria-label="Lampirkan gambar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 9"/></svg></button><input id="aiI" placeholder="Tanya atau perintah" autocomplete="off"><button type="button" id="aiGo" aria-label="Kirim">↑</button></div></div></div>';
+ai.innerHTML='<div class="glass blur"><div class="grab"></div><div class="row" style="margin-bottom:12px"><h2>Asisten</h2><span style="display:flex;gap:8px"><button class="btn sm" id="aiGear" type="button" aria-label="Key">⚙</button><button class="btn sm" id="aiX" type="button">Tutup</button></span></div><div id="aiKey" class="aikey" hidden><input id="aiKi" type="password" placeholder="API key" autocomplete="off"><button class="btn pri sm" type="button" id="aiSave">Simpan</button><button class="btn sm" type="button" id="aiDel" hidden>Hapus</button></div><div id="aiBox"><div id="aim"></div><input type="file" id="aiFile" accept="image/*" hidden><div class="aiprev" id="aiPrev" hidden></div><div class="addrow" id="aiF"><button type="button" class="att" id="aiAtt" aria-label="Lampirkan gambar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 9"/></svg></button><input id="aiI" placeholder="Tanya atau perintah" autocomplete="off"><button type="button" class="mic" id="aiMic" aria-label="Bicara" hidden><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button type="button" id="aiGo" aria-label="Kirim">↑</button></div></div></div>';
 document.body.append(ai);
 fab.addEventListener('click',()=>{buzz();aiOpen()});
 $('#aiX').addEventListener('click',aiClose);
@@ -2594,6 +2600,39 @@ function aiGo(){
   if(AI.busy)return;const i=$('#aiI'),v=i.value,im=aiImg;
   if(!v.trim()&&!im)return;
   i.value='';aiImg=null;aiPrevSet();aiSend(v,im);
+}
+// ===== Suara ke teks (Web Speech API) =====
+const AI_VOICE_AUTOSEND=false;   // true = langsung kirim ke asisten setelah selesai bicara
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let aiRec=null,aiVoiceOn=false,aiVoiceBase='',aiVoiceText='';
+function aiVoiceUI(on){const m=$('#aiMic');m.classList.toggle('on',on);m.setAttribute('aria-pressed',on);m.setAttribute('aria-label',on?'Berhenti merekam':'Bicara');$('#aiI').placeholder=on?'Mendengarkan…':'Tanya atau perintah'}
+function aiVoiceStop(){if(aiRec&&aiVoiceOn){try{aiRec.stop()}catch(e){}}}
+function aiVoiceStart(){
+  if(AI.busy||aiVoiceOn)return;
+  const i=$('#aiI');aiVoiceBase=i.value.trim();aiVoiceText='';
+  const r=new SR();aiRec=r;r.lang='id-ID';r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
+  r.onstart=()=>{aiVoiceOn=true;aiVoiceUI(true);buzz()};
+  r.onresult=e=>{
+    let t='';for(let k=0;k<e.results.length;k++)t+=e.results[k][0].transcript;
+    aiVoiceText=t.trim();i.value=(aiVoiceBase?aiVoiceBase+' ':'')+aiVoiceText;
+  };
+  r.onerror=e=>{
+    const c=e&&e.error;
+    if(c==='not-allowed'||c==='service-not-allowed')aiAdd('a','Izin mikrofon ditolak. Aktifkan izin mikrofon untuk situs ini di pengaturan browser.');
+    else if(c==='network')aiAdd('a','Pengenalan suara butuh internet, coba lagi.');
+    else if(c==='audio-capture')aiAdd('a','Mikrofon tidak ditemukan.');
+    else if(c==='no-speech')aiAdd('a','Tidak ada suara terdengar, coba lagi.');
+  };
+  r.onend=()=>{
+    aiVoiceOn=false;aiVoiceUI(false);aiRec=null;
+    const v=$('#aiI');
+    if(aiVoiceText){if(AI_VOICE_AUTOSEND)aiGo();else{v.focus();try{v.setSelectionRange(v.value.length,v.value.length)}catch(x){}}}
+  };
+  try{r.start()}catch(e){aiVoiceOn=false;aiVoiceUI(false)}
+}
+if(SR){
+  const m=$('#aiMic');m.hidden=false;
+  m.addEventListener('click',()=>{aiVoiceOn?aiVoiceStop():aiVoiceStart()});
 }
 $('#aiSave').addEventListener('click',aiSave);
 $('#aiGo').addEventListener('click',aiGo);
